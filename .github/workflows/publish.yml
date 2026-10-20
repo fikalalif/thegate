@@ -69,7 +69,10 @@ jobs:
       - name: Set up Node.js for npm Publishing
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+
+      - name: Upgrade npm to latest for Trusted Publishing
+        run: npm install -g npm@latest
 
       - name: Dry Run Publish
         if: ${{ inputs.dry_run }}
