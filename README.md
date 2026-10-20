@@ -15,11 +15,11 @@
 
 <p align="center">
   <a href="#-quickstart">Quickstart</a> •
-  <a href="#-core-features">Features</a> •
+  <a href="#-interface--mockups">Screenshots</a> •
+  <a href="#-key-features">Features</a> •
   <a href="#-architecture">Architecture</a> •
   <a href="#-sdk-integration">SDK Integration</a> •
-  <a href="#-cli-commands">CLI Reference</a> •
-  <a href="#-deployment">Deployment</a>
+  <a href="#-cli-commands">CLI Reference</a>
 </p>
 
 ---
@@ -31,6 +31,47 @@
 **TheGate** is an open-source, self-hosted intelligent LLM routing and cost-optimization gateway. It sits between your AI applications and downstream model providers (such as 9Router, OpenAI, Anthropic, or local Ollama instances).
 
 Exposing a **100% OpenAI-compatible Chat Completions API** (`POST /v1/chat/completions`), TheGate analyzes incoming requests in real-time and routes prompts to the most cost-effective eligible model that satisfies your technical constraints—all without ever storing your prompt or completion text.
+
+---
+
+## 📸 Interface & Mockups
+
+<div align="center">
+
+### 🕹️ 1. Virtual 2D Pixel-Art Office Simulation
+*Watch autonomous AI agents collaborate in real-time, animate tasks at their desks, and solve recommendation quests.*
+
+<img src="docs/screenshots/02_pixel_office_simulation.png" alt="Virtual 2D Pixel-Art Office Simulation" width="100%" />
+
+<br/><br/>
+
+### 📊 2. Real-Time Operations Cockpit & Gateway Overview
+*Live LLM traffic throughput, token consumption, routing decisions, and health telemetry.*
+
+<img src="docs/screenshots/01_dashboard_overview.png" alt="Real-time Operations Cockpit" width="100%" />
+
+<br/><br/>
+
+### 💰 3. FinOps & Baseline Cost Savings Engine
+*Measure actual dollar savings against benchmark models (GPT-4o / Claude 3.5 Sonnet) with verifiable accounting.*
+
+<img src="docs/screenshots/03_cost_optimization.png" alt="FinOps Cost Optimization" width="100%" />
+
+<br/><br/>
+
+### 👥 4. AI Workforce & Autonomous Agent Management
+*Assign specialized AI roles, configure model capabilities, and balance organizational workloads.*
+
+<img src="docs/screenshots/04_ai_workforce.png" alt="AI Workforce Management" width="100%" />
+
+<br/><br/>
+
+### 🎯 5. Dynamic Routing Policies & Guardrails
+*Configure Economy, Balanced, and Quality rules with strict context limits, tool-calling filters, and fallback chains.*
+
+<img src="docs/screenshots/05_policies_routing.png" alt="Dynamic Routing Policies" width="100%" />
+
+</div>
 
 ---
 
