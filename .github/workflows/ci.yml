@@ -30,7 +30,7 @@ jobs:
       - name: Run Pytest Suite
         env:
           THEGATE_ENV: testing
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
         run: |
           python -m pytest tests/ -v
 

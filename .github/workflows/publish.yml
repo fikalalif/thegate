@@ -38,7 +38,7 @@ jobs:
       - name: Run Backend Tests
         env:
           THEGATE_ENV: testing
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
         run: python -m pytest tests/ -q
 
       - name: Set up Node.js
@@ -58,6 +58,7 @@ jobs:
     name: Publish Package to npm
     needs: validate
     runs-on: ubuntu-latest
+    environment: NPM_TOKEN
     permissions:
       contents: read
       id-token: write
@@ -77,7 +78,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish to npm Registry
+      - name: Publish to npm Registry via Trusted Publishing
         if: ${{ !inputs.dry_run }}
         run: npm publish --access public --provenance
         env:
