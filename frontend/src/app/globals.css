@@ -1,0 +1,231 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Silkscreen:wght@400;700&family=Press+Start+2P&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #EFE7D8;
+  --foreground: #1A1423;
+  --surface-low: #F4ECE0;
+  --surface-mid: #E8DCC8;
+  --surface-high: #DCCFB8;
+  --border: #3D3126;
+  --brand: #B45309;
+  --healthy: #047857;
+  --warning: #B45309;
+  --fault: #B91C1C;
+  --telemetry: #1D4ED8;
+
+  /* Retro Palette Light Mode (Vintage Cream Parchment & Terminal) */
+  --retro-bg: #EFE7D8;
+  --retro-night: #FAF4E8;
+  --retro-plum: #E5D6BD;
+  --retro-ink: #D0C0A6;
+  --retro-coal: #F5ECD9;
+  --retro-cream: #1A1423;
+  --retro-paper: #4A3E31;
+  --retro-amber: #B45309;
+  --retro-mint: #047857;
+  --retro-blue: #1D4ED8;
+  --retro-coral: #B91C1C;
+  --retro-wood: #8B5A3C;
+  --retro-green: #2D6A4F;
+  --retro-floor: #D9C7A0;
+  --retro-wall: #352C3E;
+}
+
+.dark {
+  --background: #0B0D10;
+  --foreground: #EDEDED;
+  --surface-low: #101318;
+  --surface-mid: #151920;
+  --surface-high: #1B2028;
+  --border: #2A303A;
+  --brand: #FFB71B;
+  --healthy: #36C98F;
+  --warning: #F5B942;
+  --fault: #F16D73;
+  --telemetry: #7AA7FF;
+
+  /* Retro Palette Dark Mode (Midnight 16-Bit Terminal) */
+  --retro-bg: #171923;
+  --retro-night: #1A1423;
+  --retro-plum: #282337;
+  --retro-ink: #352C3E;
+  --retro-coal: #120D1A;
+  --retro-cream: #F4E6C8;
+  --retro-paper: #D9C7A0;
+  --retro-amber: #FFB71B;
+  --retro-mint: #72D6A0;
+  --retro-blue: #7AA7FF;
+  --retro-coral: #F16D73;
+  --retro-wood: #8B5A3C;
+  --retro-green: #477A52;
+  --retro-floor: #D9C7A0;
+  --retro-wall: #352C3E;
+}
+
+body {
+  color: var(--retro-cream);
+  background: var(--retro-bg);
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  min-height: 100vh;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light mode text contrast overrides for legacy text-white classes */
+html:not(.dark) .text-white,
+html:not(.dark) .text-slate-200,
+html:not(.dark) .text-slate-300 {
+  color: #1A1423 !important;
+}
+
+html:not(.dark) .text-slate-400,
+html:not(.dark) .text-slate-500 {
+  color: #4A3E31 !important;
+}
+
+/* High-Legibility Crisp Retro Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.font-mono, code, pre {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+}
+
+/* Retro 8-bit Chunky Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--retro-bg);
+  border-left: 1px solid #000;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--retro-ink);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0px rgba(255, 255, 255, 0.2);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--retro-amber);
+}
+
+/* Pulsing Radar Beacon */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(54, 201, 143, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(54, 201, 143, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(54, 201, 143, 0);
+  }
+}
+
+.radar-beacon {
+  animation: radar-pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes fault-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(241, 109, 115, 0.8);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(241, 109, 115, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(241, 109, 115, 0);
+  }
+}
+
+.fault-beacon {
+  animation: fault-pulse 1.5s infinite;
+}
+
+/* ========================================================
+   Retro Pixel Design Utilities
+   ======================================================== */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+.pixel-font {
+  font-family: 'Press Start 2P', 'Silkscreen', 'Courier New', monospace;
+  letter-spacing: -0.04em;
+  font-smooth: never;
+  -webkit-font-smoothing: none;
+}
+
+.pixel-border-amber {
+  border: 2px solid #FFB71B;
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.pixel-border-dark {
+  border: 2px solid #352C3E;
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.pixel-border-mint {
+  border: 2px solid #72D6A0;
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.pixel-border-coral {
+  border: 2px solid #F16D73;
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.pixel-shadow {
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.pixel-shadow-sm {
+  box-shadow: 2px 2px 0px #000000;
+}
+
+.pixel-shadow-inset {
+  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.15), inset -2px -2px 0px rgba(0, 0, 0, 0.6);
+}
+
+/* Retro CRT Scanlines Effect (Toggleable) */
+.crt-overlay {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.25) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+/* Retro Dialogue Typewriter Cursor */
+@keyframes retro-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.retro-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background-color: #FFB71B;
+  vertical-align: middle;
+  margin-left: 4px;
+  animation: retro-blink 0.8s infinite;
+}
+

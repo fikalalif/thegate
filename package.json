@@ -1,0 +1,49 @@
+{
+  "name": "thegate",
+  "version": "1.4.2",
+  "description": "TheGate — The Control Plane for AI: Intelligent LLM Routing & Operations Cockpit",
+  "main": "bin/thegate.js",
+  "bin": {
+    "thegate": "bin/thegate.js"
+  },
+  "files": [
+    "bin",
+    "backend/app",
+    "backend/migrations",
+    "backend/alembic.ini",
+    "backend/pyproject.toml",
+    "backend/requirements.txt",
+    "frontend/src",
+    "frontend/public",
+    "frontend/package.json",
+    "frontend/next.config.mjs",
+    "frontend/postcss.config.js",
+    "frontend/tailwind.config.ts",
+    "frontend/tsconfig.json",
+    ".env.example",
+    "README.md",
+    "docker-compose.yml",
+    "!**/__pycache__/**",
+    "!**/*.pyc",
+    "!**/*.pyo"
+  ],
+  "scripts": {
+    "thegate": "node ./bin/thegate.js",
+    "dev:backend": "cd backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "start:frontend": "cd frontend && npm run start -- -p 3000"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "routing",
+    "cost-optimization",
+    "gateway",
+    "finops",
+    "ai-workforce",
+    "thegate"
+  ],
+  "author": "TheGate Core Team",
+  "license": "MIT"
+}
