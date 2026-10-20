@@ -44,6 +44,14 @@
     "ai-workforce",
     "thegate"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fikalalif/thegate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fikalalif/thegate/issues"
+  },
+  "homepage": "https://github.com/fikalalif/thegate#readme",
   "author": "TheGate Core Team",
   "license": "MIT"
 }
