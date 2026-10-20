@@ -1,6 +1,6 @@
 {
   "name": "thegate",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "TheGate — The Control Plane for AI: Intelligent LLM Routing & Operations Cockpit",
   "main": "bin/thegate.js",
   "bin": {
