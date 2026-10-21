@@ -28,7 +28,8 @@ const GATEWAY_URL = `http://127.0.0.1:${GATEWAY_PORT}`;
 const WEB_URL = `http://127.0.0.1:${WEB_PORT}`;
 
 // Log directory for auditable runtime diagnostics
-const LOG_DIR = path.join(process.env.HOME || "/tmp", ".thegate", "logs");
+const USER_HOME = process.env.USERPROFILE || process.env.HOME || process.env.LOCALAPPDATA || "/tmp";
+const LOG_DIR = path.join(USER_HOME, ".thegate", "logs");
 try {
   fs.mkdirSync(LOG_DIR, { recursive: true });
 } catch {}
@@ -84,25 +85,30 @@ function isExecutable(binPath) {
   }
 }
 
-// Intelligent Python & Virtualenv detection
+// Intelligent Python & Virtualenv detection with cross-platform support (Linux, macOS, Windows)
 function findPythonExecutable() {
+  const isWin = process.platform === "win32";
+  const scriptsFolder = isWin ? "Scripts" : "bin";
+  const pyExe = isWin ? "python.exe" : "python";
+  const uviExe = isWin ? "uvicorn.exe" : "uvicorn";
   const backendDir = path.join(__dirname, "..", "backend");
+
   const candidates = [
     process.env.THEGATE_PYTHON,
-    process.env.VIRTUAL_ENV ? path.join(process.env.VIRTUAL_ENV, "bin", "uvicorn") : null,
-    process.env.VIRTUAL_ENV ? path.join(process.env.VIRTUAL_ENV, "bin", "python") : null,
-    path.join(backendDir, ".venv", "bin", "uvicorn"),
-    path.join(backendDir, ".venv", "bin", "python"),
-    path.join(backendDir, "venv", "bin", "uvicorn"),
-    path.join(backendDir, "venv", "bin", "python"),
-    path.join(__dirname, "..", ".venv", "bin", "uvicorn"),
-    path.join(__dirname, "..", ".venv", "bin", "python"),
-    path.join(process.cwd(), "backend", ".venv", "bin", "uvicorn"),
-    path.join(process.cwd(), "backend", ".venv", "bin", "python"),
-    path.join(process.cwd(), ".venv", "bin", "uvicorn"),
-    path.join(process.cwd(), ".venv", "bin", "python"),
-    path.join(process.env.HOME || "", "ai_workspace", "thegate", "backend", ".venv", "bin", "uvicorn"),
-    path.join(process.env.HOME || "", "ai_workspace", "thegate", "backend", ".venv", "bin", "python"),
+    process.env.VIRTUAL_ENV ? path.join(process.env.VIRTUAL_ENV, scriptsFolder, uviExe) : null,
+    process.env.VIRTUAL_ENV ? path.join(process.env.VIRTUAL_ENV, scriptsFolder, pyExe) : null,
+    path.join(backendDir, ".venv", scriptsFolder, uviExe),
+    path.join(backendDir, ".venv", scriptsFolder, pyExe),
+    path.join(backendDir, "venv", scriptsFolder, uviExe),
+    path.join(backendDir, "venv", scriptsFolder, pyExe),
+    path.join(__dirname, "..", ".venv", scriptsFolder, uviExe),
+    path.join(__dirname, "..", ".venv", scriptsFolder, pyExe),
+    path.join(process.cwd(), "backend", ".venv", scriptsFolder, uviExe),
+    path.join(process.cwd(), "backend", ".venv", scriptsFolder, pyExe),
+    path.join(process.cwd(), ".venv", scriptsFolder, uviExe),
+    path.join(process.cwd(), ".venv", scriptsFolder, pyExe),
+    path.join(USER_HOME, "ai_workspace", "thegate", "backend", ".venv", scriptsFolder, uviExe),
+    path.join(USER_HOME, "ai_workspace", "thegate", "backend", ".venv", scriptsFolder, pyExe),
     "/workspace/thegate/backend/.venv/bin/uvicorn",
     "/workspace/thegate/backend/.venv/bin/python",
   ].filter(Boolean);
@@ -113,9 +119,15 @@ function findPythonExecutable() {
     }
   }
 
-  if (isExecutable("python3")) return "python3";
-  if (isExecutable("python")) return "python";
-  return "python3";
+  if (isWin) {
+    if (isExecutable("python")) return "python";
+    if (isExecutable("py")) return "py";
+    if (isExecutable("python3")) return "python3";
+  } else {
+    if (isExecutable("python3")) return "python3";
+    if (isExecutable("python")) return "python";
+  }
+  return isWin ? "python" : "python3";
 }
 
 // Open URL in default OS browser
@@ -179,11 +191,13 @@ function startBackend() {
     ? ["app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)]
     : ["-m", "uvicorn", "app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)];
 
+  const isWin = process.platform === "win32";
   try {
     const logFd = fs.openSync(BACKEND_LOG_PATH, "a");
     const child = spawn(pyExec, args, {
       cwd: backendDir,
-      detached: true,
+      detached: !isWin,
+      shell: isWin,
       stdio: ["ignore", logFd, logFd],
       env: { ...process.env, PYTHONUNBUFFERED: "1" },
     });
@@ -200,6 +214,8 @@ function startBackend() {
 
 // Start Frontend Next.js Server
 function startFrontend() {
+  const isWin = process.platform === "win32";
+  const npmCmd = isWin ? "npm.cmd" : "npm";
   const frontendDir = path.join(__dirname, "..", "frontend");
   const hasNodeModules = fs.existsSync(path.join(frontendDir, "node_modules"));
   const hasNextBuild = fs.existsSync(path.join(frontendDir, ".next"));
@@ -207,14 +223,14 @@ function startFrontend() {
   if (!hasNodeModules) {
     console.log(`  ${c.telemetry}⚡ Installing frontend dependencies (one-time setup)...${c.reset}`);
     try {
-      execSync("npm install", { cwd: frontendDir, stdio: "inherit" });
+      execSync(`${npmCmd} install`, { cwd: frontendDir, stdio: "inherit", shell: true });
     } catch (e) {
       console.log(`  ${c.fault}Failed to install frontend dependencies: ${e.message}${c.reset}`);
     }
   }
 
   const isDev = process.env.THEGATE_DEV === "true";
-  let cmd = "npm";
+  let cmd = npmCmd;
   let args = ["run", "dev", "--", "-p", String(WEB_PORT), "-H", GATEWAY_HOST];
 
   // If built, run in production mode: ~200ms startup, rock-solid, no 404 compilation lags
@@ -226,7 +242,8 @@ function startFrontend() {
     const logFd = fs.openSync(FRONTEND_LOG_PATH, "a");
     const child = spawn(cmd, args, {
       cwd: frontendDir,
-      detached: true,
+      detached: !isWin,
+      shell: true,
       stdio: ["ignore", logFd, logFd],
       env: { ...process.env, PORT: String(WEB_PORT), HOSTNAME: GATEWAY_HOST },
     });
@@ -290,10 +307,17 @@ async function ensureServicesRunning() {
 
 async function stopAllServices() {
   console.log(`\n  ${c.fault}Stopping TheGate backend and frontend services...${c.reset}`);
-  exec("pkill -f 'uvicorn.*app.main:app' 2>/dev/null || true");
-  exec("pkill -f 'next.*(dev|start|server)' 2>/dev/null || true");
-  exec(`fuser -k ${GATEWAY_PORT}/tcp 2>/dev/null || true`);
-  exec(`fuser -k ${WEB_PORT}/tcp 2>/dev/null || true`);
+  if (process.platform === "win32") {
+    try {
+      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${GATEWAY_PORT}') do taskkill /f /pid %a 2>nul || true`, { shell: "cmd.exe", stdio: "ignore" });
+      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${WEB_PORT}') do taskkill /f /pid %a 2>nul || true`, { shell: "cmd.exe", stdio: "ignore" });
+    } catch {}
+  } else {
+    exec("pkill -f 'uvicorn.*app.main:app' 2>/dev/null || true");
+    exec("pkill -f 'next.*(dev|start|server)' 2>/dev/null || true");
+    exec(`fuser -k ${GATEWAY_PORT}/tcp 2>/dev/null || true`);
+    exec(`fuser -k ${WEB_PORT}/tcp 2>/dev/null || true`);
+  }
   await new Promise((r) => setTimeout(r, 1200));
   console.log(`  ${c.healthy}✓ Services stopped.${c.reset}\n`);
   await new Promise((r) => setTimeout(r, 1000));
