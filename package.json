@@ -1,6 +1,6 @@
 {
   "name": "thegate",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "description": "TheGate — The Control Plane for AI: Intelligent LLM Routing & Operations Cockpit",
   "main": "bin/thegate.js",
   "bin": {
@@ -21,12 +21,14 @@
     "frontend/postcss.config.js",
     "frontend/tailwind.config.ts",
     "frontend/tsconfig.json",
+    "frontend/.next/standalone",
     ".env.example",
     "README.md",
     "docker-compose.yml",
     "!**/__pycache__/**",
     "!**/*.pyc",
-    "!**/*.pyo"
+    "!**/*.pyo",
+    "!frontend/.next/cache/**"
   ],
   "scripts": {
     "thegate": "node ./bin/thegate.js",

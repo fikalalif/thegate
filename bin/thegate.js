@@ -20,7 +20,7 @@ const path = require("path");
 const fs = require("fs");
 const { printLogo, c } = require("./banner");
 
-const VERSION = "1.4.5";
+const VERSION = "1.4.6";
 const GATEWAY_HOST = process.env.THEGATE_HOST || "0.0.0.0";
 const GATEWAY_PORT = process.env.THEGATE_BACKEND_PORT || 8001;
 const WEB_PORT = process.env.THEGATE_WEB_PORT || 3000;
@@ -83,6 +83,40 @@ function isExecutable(binPath) {
   } catch {
     return false;
   }
+}
+
+// Locate self-contained standalone binary (Zero-Python runtime for Linux, macOS, and Windows)
+function findStandaloneBackendBinary() {
+  const isWin = process.platform === "win32";
+  const isMac = process.platform === "darwin";
+
+  const names = [];
+  if (isWin) {
+    names.push("thegate-backend.exe", "thegate-backend-win.exe");
+  } else if (isMac) {
+    names.push("thegate-backend-macos", "thegate-backend");
+  } else {
+    names.push("thegate-backend-linux", "thegate-backend");
+  }
+
+  const searchDirs = [
+    path.join(__dirname),
+    path.join(__dirname, "..", "bin"),
+    path.join(__dirname, "..", "backend", "dist"),
+    path.join(__dirname, "..", "backend", "dist", "thegate-backend"),
+    path.join(process.cwd(), "bin"),
+    path.join(process.cwd(), "backend", "dist"),
+  ];
+
+  for (const dir of searchDirs) {
+    for (const name of names) {
+      const candidate = path.join(dir, name);
+      if (fs.existsSync(candidate) && isExecutable(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return null;
 }
 
 // Intelligent Python & Virtualenv detection with cross-platform support (Linux, macOS, Windows)
@@ -185,16 +219,27 @@ function printHeader(backendOnline, frontendOnline) {
 function startBackend() {
   ensureEnvFile();
   const backendDir = path.join(__dirname, "..", "backend");
-  const pyExec = findPythonExecutable();
-  const isUvicornBin = pyExec.endsWith("uvicorn");
-  const args = isUvicornBin
-    ? ["app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)]
-    : ["-m", "uvicorn", "app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)];
-
+  const standaloneBin = findStandaloneBackendBinary();
   const isWin = process.platform === "win32";
+
+  let execFile;
+  let args;
+
+  if (standaloneBin) {
+    execFile = standaloneBin;
+    args = ["--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)];
+  } else {
+    const pyExec = findPythonExecutable();
+    const isUvicornBin = pyExec.endsWith("uvicorn") || pyExec.endsWith("uvicorn.exe");
+    execFile = pyExec;
+    args = isUvicornBin
+      ? ["app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)]
+      : ["-m", "uvicorn", "app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)];
+  }
+
   try {
     const logFd = fs.openSync(BACKEND_LOG_PATH, "a");
-    const child = spawn(pyExec, args, {
+    const child = spawn(execFile, args, {
       cwd: backendDir,
       detached: !isWin,
       shell: isWin,
@@ -217,6 +262,33 @@ function startFrontend() {
   const isWin = process.platform === "win32";
   const npmCmd = isWin ? "npm.cmd" : "npm";
   const frontendDir = path.join(__dirname, "..", "frontend");
+  const standaloneServer = path.join(frontendDir, ".next", "standalone", "server.js");
+  const hasStandalone = fs.existsSync(standaloneServer);
+
+  // 1. FAST PATH: Next.js Standalone Mode (Zero npm install, boots in 50ms!)
+  if (hasStandalone && process.env.THEGATE_DEV !== "true") {
+    try {
+      const logFd = fs.openSync(FRONTEND_LOG_PATH, "a");
+      const child = spawn("node", [standaloneServer], {
+        cwd: path.join(frontendDir, ".next", "standalone"),
+        detached: !isWin,
+        shell: isWin,
+        stdio: ["ignore", logFd, logFd],
+        env: { ...process.env, PORT: String(WEB_PORT), HOSTNAME: GATEWAY_HOST },
+      });
+      child.on("error", (err) => {
+        try {
+          fs.appendFileSync(FRONTEND_LOG_PATH, `\n[TheGate Launcher] Frontend standalone spawn error: ${err.message}\n`);
+        } catch {}
+      });
+      child.unref();
+      return;
+    } catch (err) {
+      console.log(`  ${c.fault}Failed to spawn frontend standalone server: ${err.message}${c.reset}`);
+    }
+  }
+
+  // 2. FALLBACK PATH: Standard npm run start / npm run dev
   const hasNodeModules = fs.existsSync(path.join(frontendDir, "node_modules"));
   const hasNextBuild = fs.existsSync(path.join(frontendDir, ".next"));
 
@@ -266,13 +338,23 @@ async function ensureServicesRunning() {
 
   console.log(`\n  ${c.telemetry}⚡ Initializing TheGate runtime services...${c.reset}`);
   if (!backendOnline) {
-    const pyPath = findPythonExecutable();
-    console.log(`  ${c.brand}▶ Spawning Backend Gateway (Port ${GATEWAY_PORT}) via ${path.basename(pyPath)}...${c.reset}`);
+    const standaloneBin = findStandaloneBackendBinary();
+    if (standaloneBin) {
+      console.log(`  ${c.brand}▶ Spawning Standalone Backend Gateway (Port ${GATEWAY_PORT}) via ${path.basename(standaloneBin)} [Zero-Python]...${c.reset}`);
+    } else {
+      const pyPath = findPythonExecutable();
+      console.log(`  ${c.brand}▶ Spawning Backend Gateway (Port ${GATEWAY_PORT}) via ${path.basename(pyPath)}...${c.reset}`);
+    }
     startBackend();
   }
   if (!frontendOnline) {
+    const hasStandalone = fs.existsSync(path.join(__dirname, "..", "frontend", ".next", "standalone", "server.js"));
     const hasNextBuild = fs.existsSync(path.join(__dirname, "..", "frontend", ".next"));
-    const mode = hasNextBuild && process.env.THEGATE_DEV !== "true" ? "production" : "dev";
+    const mode = hasStandalone && process.env.THEGATE_DEV !== "true"
+      ? "standalone"
+      : hasNextBuild && process.env.THEGATE_DEV !== "true"
+      ? "production"
+      : "dev";
     console.log(`  ${c.brand}▶ Spawning Frontend Dashboard (Port ${WEB_PORT}) [${mode}]...${c.reset}`);
     startFrontend();
   }

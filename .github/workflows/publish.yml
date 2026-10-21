@@ -54,9 +54,50 @@ jobs:
           npm ci
           npx tsc --noEmit
 
+  build-backend-binaries:
+    name: Build Standalone Backend (${{ matrix.os }})
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: thegate-backend-linux
+            binary_name: thegate-backend
+            out_path: backend/dist/thegate-backend
+          - os: windows-latest
+            artifact_name: thegate-backend.exe
+            binary_name: thegate-backend.exe
+            out_path: backend/dist/thegate-backend.exe
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Backend Dependencies & PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt pyinstaller
+
+      - name: Build Standalone Executable
+        working-directory: backend
+        run: |
+          pyinstaller --noconfirm --onefile --name thegate-backend --hidden-import=uvicorn.logging --hidden-import=uvicorn.loops --hidden-import=uvicorn.loops.auto --hidden-import=uvicorn.loops.asyncio --hidden-import=uvicorn.protocols --hidden-import=uvicorn.protocols.http --hidden-import=uvicorn.protocols.http.auto --hidden-import=uvicorn.protocols.http.h11_impl --hidden-import=uvicorn.protocols.websockets --hidden-import=uvicorn.protocols.websockets.auto --hidden-import=aiosqlite --hidden-import=sqlalchemy.dialects.sqlite.aiosqlite entrypoint.py
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.out_path }}
+
   publish:
     name: Publish Package to npm
-    needs: validate
+    needs: [validate, build-backend-binaries]
     runs-on: ubuntu-latest
     environment: NPM_TOKEN
     permissions:
@@ -73,6 +114,40 @@ jobs:
 
       - name: Upgrade npm to latest for Trusted Publishing
         run: npm install -g npm@latest
+
+      - name: Download Linux Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: thegate-backend-linux
+          path: bin/
+
+      - name: Prepare Linux Binary
+        run: |
+          if [ -f bin/thegate-backend ]; then
+            cp bin/thegate-backend bin/thegate-backend-linux
+          elif [ -f bin/thegate-backend-linux ]; then
+            cp bin/thegate-backend-linux bin/thegate-backend
+          fi
+          chmod +x bin/thegate-backend* || true
+
+      - name: Download Windows Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: thegate-backend.exe
+          path: bin/
+
+      - name: Build Next.js Standalone Bundle
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          cp -r public .next/standalone/public
+          cp -r .next/static .next/standalone/.next/static
+          rm -rf .next/cache
+
+      - name: Ensure Executable Permissions
+        run: |
+          chmod +x bin/thegate.js bin/thegate-backend* || true
 
       - name: Dry Run Publish
         if: ${{ inputs.dry_run }}

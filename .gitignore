@@ -1,5 +1,8 @@
-# Python
-__pycache__/
+# Build binaries
+bin/thegate-backend*
+backend/dist/
+backend/build/
+*.spec
 *.py[cod]
 *$py.class
 *.so
