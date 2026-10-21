@@ -280,3 +280,106 @@ def test_routed_completion_no_models_registered_returns_503() -> None:
 
     asyncio.run(engine.dispose())
 
+
+def test_routed_completion_slash_format(routed_app_client: TestClient) -> None:
+    """Assert slash virtual formats like thegate/balanced and thegate/economy route properly."""
+    for model_name in ["thegate/balanced", "thegate/economy", "thegate/quality"]:
+        response = routed_app_client.post(
+            "/v1/chat/completions",
+            json={
+                "model": model_name,
+                "messages": [{"role": "user", "content": f"Test {model_name}"}],
+                "stream": False,
+            },
+            headers={"Authorization": f"Bearer {VALID_TEST_KEY}"},
+        )
+        assert response.status_code == 200
+        assert "choices" in response.json()
+
+
+def test_routed_completion_fallback_chain(routed_app_client: TestClient) -> None:
+    """Assert that when primary candidate fails, ingress falls back to runner-up candidate."""
+    from app.core.exceptions import ProviderResponseError
+    from app.schemas.provider import ChatChoice, ChatMessage, TokenUsage, UnifiedChatResponse
+
+    class FallbackTestingAdapter(MockProviderAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.attempt_models: list[str] = []
+
+        async def execute(self, request: Any) -> UnifiedChatResponse:
+            self.attempt_models.append(request.model)
+            # Fail on first candidate, succeed on fallback candidate
+            if len(self.attempt_models) == 1:
+                raise ProviderResponseError("Upstream simulated failure on primary")
+            return UnifiedChatResponse(
+                id="chatcmpl-fallback-test",
+                model=request.model,
+                choices=[
+                    ChatChoice(
+                        index=0,
+                        message=ChatMessage(role="assistant", content="Fallback success"),
+                        finish_reason="stop",
+                    )
+                ],
+                usage=TokenUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
+            )
+
+    test_adapter = FallbackTestingAdapter()
+    routed_app_client.app.dependency_overrides[get_provider_adapter] = lambda: test_adapter
+
+    try:
+        response = routed_app_client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "thegate/balanced",
+                "messages": [{"role": "user", "content": "Trigger fallback chain"}],
+                "stream": False,
+            },
+            headers={"Authorization": f"Bearer {VALID_TEST_KEY}"},
+        )
+        assert response.status_code == 200
+        # Check that multiple attempts were made
+        assert len(test_adapter.attempt_models) >= 2
+    finally:
+        routed_app_client.app.dependency_overrides[get_provider_adapter] = lambda: MockProviderAdapter(
+            default_response_text="Routed response"
+        )
+
+
+def test_seed_initial_defaults() -> None:
+    """Assert seed_initial_defaults correctly seeds dev keys and policies when empty."""
+    from app.db.seed import seed_initial_defaults
+    from app.db.models.api_keys import ApiKey
+    from app.db.models.routing_policies import RoutingPolicy
+    from sqlalchemy import select
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    session_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+    async def run_seed_test() -> None:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        async with session_factory() as session:
+            stats = await seed_initial_defaults(session)
+            assert stats["keys_seeded"] == 3
+            assert stats["policies_seeded"] == 3
+
+            # Check that seeded keys exist
+            keys = (await session.execute(select(ApiKey))).scalars().all()
+            assert len(keys) == 3
+            key_names = [k.name for k in keys]
+            assert "Developer Admin Key" in key_names
+            assert "Local CLI Key" in key_names
+
+            # Idempotency check: running seed again should seed 0
+            stats2 = await seed_initial_defaults(session)
+            assert stats2["keys_seeded"] == 0
+            assert stats2["policies_seeded"] == 0
+
+        await engine.dispose()
+
+    asyncio.run(run_seed_test())
+
+

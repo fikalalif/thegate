@@ -20,7 +20,7 @@ const path = require("path");
 const fs = require("fs");
 const { printLogo, c } = require("./banner");
 
-const VERSION = "1.4.4";
+const VERSION = "1.4.5";
 const GATEWAY_HOST = process.env.THEGATE_HOST || "0.0.0.0";
 const GATEWAY_PORT = process.env.THEGATE_BACKEND_PORT || 8001;
 const WEB_PORT = process.env.THEGATE_WEB_PORT || 3000;

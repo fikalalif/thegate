@@ -29,8 +29,17 @@ if ! curl -s -f "http://127.0.0.1:8001/health" > /dev/null 2>&1; then
     echo "⚡ Starting TheGate Gateway & Operations Cockpit..."
     if command -v thegate > /dev/null 2>&1; then
         thegate start
+    elif [ -f "$(dirname "$0")/../bin/thegate.js" ]; then
+        node "$(dirname "$0")/../bin/thegate.js" start
+    elif [ -f "$HOME/fikal/thegate/bin/thegate.js" ]; then
+        node "$HOME/fikal/thegate/bin/thegate.js" start
+    elif [ -f "$HOME/ai_workspace/thegate/bin/thegate.js" ]; then
+        node "$HOME/ai_workspace/thegate/bin/thegate.js" start
+    elif [ -f "$HOME/thegate/bin/thegate.js" ]; then
+        node "$HOME/thegate/bin/thegate.js" start
     else
-        node /home/fikal/fikal/thegate/bin/thegate.js start
+        echo "Error: TheGate CLI launcher not found."
+        exit 1
     fi
 fi
 

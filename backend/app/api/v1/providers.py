@@ -420,6 +420,11 @@ async def sync_router_models(
         if not raw_id:
             continue
         model_id = str(raw_id).strip()
+        model_lower = model_id.lower()
+
+        # Filter out internal router combo aliases or dummy test endpoints that fail upstream inference
+        if model_lower.startswith(("combo-", "combo/", "dummy-", "test-")) or model_lower == "combo":
+            continue
 
         # Extract capabilities
         upstream_caps = item.get("capabilities") or {}
@@ -435,10 +440,9 @@ async def sync_router_models(
             ctx_len = 128000
 
         # Infer intelligent tier if not explicitly designated
-        model_lower = model_id.lower()
         if any(kw in model_lower for kw in ["pro-max", "reasoner", "opus", "large", "70b", "glm-5", "deepseek-v4", "gpt-4o", "claude-3-5-sonnet"]):
             tier = 3
-        elif any(kw in model_lower for kw in ["mini", "flash", "haiku", "8b", "small", "nano", "combo"]):
+        elif any(kw in model_lower for kw in ["mini", "flash", "haiku", "8b", "small", "nano"]):
             tier = 1
         else:
             tier = 2

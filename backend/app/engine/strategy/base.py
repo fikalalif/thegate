@@ -18,6 +18,7 @@ class RoutingResult(BaseModel):
     strategy_version: str
     decision_reason: str
     candidates_considered: list[str] = Field(default_factory=list)
+    fallback_candidates: list[ModelCandidate] = Field(default_factory=list)
     decision_latency_ms: int = Field(default=0, ge=0)
 
 

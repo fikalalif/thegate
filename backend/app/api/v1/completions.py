@@ -116,23 +116,28 @@ async def resolve_routed_model(
 ) -> tuple[str, RoutingResult | None, uuid.UUID | None, int | None]:
     """Resolve virtual or policy model routing, or honor explicit model selection."""
     model_lower = requested_model.strip().lower()
-    is_virtual = model_lower in {
-        "thegate-auto",
-        "thegate-economy",
-        "thegate-balanced",
-        "thegate-quality",
+    virtual_map = {
+        "thegate/auto": "balanced",
+        "thegate-auto": "balanced",
+        "auto": "balanced",
+        "thegate/balanced": "balanced",
+        "thegate-balanced": "balanced",
+        "balanced": "balanced",
+        "thegate/economy": "economy",
+        "thegate-economy": "economy",
+        "economy": "economy",
+        "thegate/quality": "quality",
+        "thegate-quality": "quality",
+        "quality": "quality",
     }
 
     policy_mode: str | None = None
     matched_policy_id: uuid.UUID | None = None
     matched_policy_version: int | None = None
+    is_virtual = model_lower in virtual_map
 
-    if model_lower == "thegate-economy":
-        policy_mode = "economy"
-    elif model_lower == "thegate-quality":
-        policy_mode = "quality"
-    elif model_lower in ("thegate-balanced", "thegate-auto"):
-        policy_mode = "balanced"
+    if is_virtual:
+        policy_mode = virtual_map[model_lower]
     else:
         # Check if requested model matches an active registered policy name
         stmt = select(RoutingPolicy).where(
@@ -311,89 +316,137 @@ async def create_chat_completion(
     )
     decision_latency_ms = routing_result.decision_latency_ms if routing_result else 0
 
-    # 1. Non-Streaming Flow
+    # 1. Non-Streaming Flow with Resilient Fallback Chain
     if not request.stream:
-        t_provider_start = time.perf_counter()
-        try:
-            unified_resp = await adapter.execute(unified_req)
-            t_provider_end = time.perf_counter()
-            provider_latency_ms = max(0, int((t_provider_end - t_provider_start) * 1000))
-            total_duration_ms = max(0, int((time.perf_counter() - t_start) * 1000))
+        candidate_model_ids = [selected_model_name]
+        if routing_result and routing_result.fallback_candidates:
+            for fb in routing_result.fallback_candidates:
+                if fb.backend_model_id not in candidate_model_ids:
+                    candidate_model_ids.append(fb.backend_model_id)
 
-            input_tokens = unified_resp.usage.prompt_tokens if unified_resp.usage else None
-            output_tokens = unified_resp.usage.completion_tokens if unified_resp.usage else None
+        for idx, model_to_try in enumerate(candidate_model_ids):
+            current_model_name = model_to_try
+            unified_req.model = model_to_try
+            t_provider_start = time.perf_counter()
 
-            audit_payload = AuditLogPayload(
-                request_id=request_id_uuid,
-                api_key_id=api_key.id if api_key else None,
-                routing_policy_id=matched_policy_id,
-                routing_policy_version=matched_policy_version,
-                status="completed",
-                model_name=selected_model_name,
-                stream_enabled=False,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                routing_latency_ms=routing_latency_ms,
-                provider_latency_ms=provider_latency_ms,
-                total_duration_ms=total_duration_ms,
-                error_category=None,
-                strategy_name=strategy_name,
-                strategy_version=strategy_version,
-                decision_reason=decision_reason,
-                candidate_summary=candidate_summary,
-                decision_latency_ms=decision_latency_ms,
-                attempt_status="success",
-                attempt_error_category=None,
-                usage_metadata=unified_resp.usage.model_dump() if unified_resp.usage else None,
-            )
-            background_tasks.add_task(record_request_audit, audit_payload, engine=session.bind)
+            try:
+                unified_resp = await adapter.execute(unified_req)
+                t_provider_end = time.perf_counter()
+                provider_latency_ms = max(0, int((t_provider_end - t_provider_start) * 1000))
+                total_duration_ms = max(0, int((time.perf_counter() - t_start) * 1000))
 
-            openai_resp = to_openai_response(unified_resp, created_timestamp)
+                input_tokens = unified_resp.usage.prompt_tokens if unified_resp.usage else None
+                output_tokens = unified_resp.usage.completion_tokens if unified_resp.usage else None
 
-            return JSONResponse(
-                content=openai_resp.model_dump(exclude_none=True),
-                status_code=status.HTTP_200_OK,
-                headers={"X-Request-ID": request_id},
-            )
-        except TheGateError as exc:
-            t_provider_end = time.perf_counter()
-            provider_latency_ms = max(0, int((t_provider_end - t_provider_start) * 1000))
-            total_duration_ms = max(0, int((time.perf_counter() - t_start) * 1000))
+                effective_reason = decision_reason
+                if idx > 0:
+                    effective_reason = (
+                        f"{decision_reason} (Fallback attempt #{idx + 1} succeeded with "
+                        f"{current_model_name} after prior candidate failed)"
+                    )
 
-            failed_payload = AuditLogPayload(
-                request_id=request_id_uuid,
-                api_key_id=api_key.id if api_key else None,
-                routing_policy_id=matched_policy_id,
-                routing_policy_version=matched_policy_version,
-                status="failed",
-                model_name=selected_model_name,
-                stream_enabled=False,
-                routing_latency_ms=routing_latency_ms,
-                provider_latency_ms=provider_latency_ms,
-                total_duration_ms=total_duration_ms,
-                error_category=exc.error_type,
-                strategy_name=strategy_name,
-                strategy_version=strategy_version,
-                decision_reason=decision_reason,
-                candidate_summary=candidate_summary,
-                decision_latency_ms=decision_latency_ms,
-                attempt_status="failed",
-                attempt_error_category=exc.error_type,
-            )
-            background_tasks.add_task(record_request_audit, failed_payload, engine=session.bind)
+                audit_payload = AuditLogPayload(
+                    request_id=request_id_uuid,
+                    api_key_id=api_key.id if api_key else None,
+                    routing_policy_id=matched_policy_id,
+                    routing_policy_version=matched_policy_version,
+                    status="completed",
+                    model_name=current_model_name,
+                    stream_enabled=False,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    routing_latency_ms=routing_latency_ms,
+                    provider_latency_ms=provider_latency_ms,
+                    total_duration_ms=total_duration_ms,
+                    error_category=None,
+                    strategy_name=strategy_name,
+                    strategy_version=strategy_version,
+                    decision_reason=effective_reason,
+                    candidate_summary=candidate_summary,
+                    decision_latency_ms=decision_latency_ms,
+                    attempt_status="success",
+                    attempt_error_category=None,
+                    usage_metadata=unified_resp.usage.model_dump() if unified_resp.usage else None,
+                )
+                background_tasks.add_task(record_request_audit, audit_payload, engine=session.bind)
 
-            return JSONResponse(
-                content={
-                    "error": {
-                        "message": exc.message,
-                        "type": exc.error_type,
-                        "code": exc.code,
+                openai_resp = to_openai_response(unified_resp, created_timestamp)
+
+                return JSONResponse(
+                    content=openai_resp.model_dump(exclude_none=True),
+                    status_code=status.HTTP_200_OK,
+                    headers={"X-Request-ID": request_id},
+                )
+            except TheGateError as exc:
+                t_provider_end = time.perf_counter()
+                provider_latency_ms = max(0, int((t_provider_end - t_provider_start) * 1000))
+                total_duration_ms = max(0, int((time.perf_counter() - t_start) * 1000))
+
+                has_more_candidates = (idx + 1) < len(candidate_model_ids)
+                if has_more_candidates:
+                    # Log failed attempt without counting as final billable tokens
+                    failed_attempt_payload = AuditLogPayload(
+                        request_id=request_id_uuid,
+                        api_key_id=api_key.id if api_key else None,
+                        routing_policy_id=matched_policy_id,
+                        routing_policy_version=matched_policy_version,
+                        status="failed",
+                        model_name=current_model_name,
+                        stream_enabled=False,
+                        input_tokens=None,
+                        output_tokens=None,
+                        routing_latency_ms=routing_latency_ms,
+                        provider_latency_ms=provider_latency_ms,
+                        total_duration_ms=total_duration_ms,
+                        error_category=exc.error_type,
+                        strategy_name=strategy_name,
+                        strategy_version=strategy_version,
+                        decision_reason=f"Candidate {current_model_name} failed: {exc.message}. Failing over to next candidate.",
+                        candidate_summary=candidate_summary,
+                        decision_latency_ms=decision_latency_ms,
+                        attempt_status="failed",
+                        attempt_error_category=exc.error_type,
+                    )
+                    background_tasks.add_task(record_request_audit, failed_attempt_payload, engine=session.bind)
+                    continue
+
+                # All candidates exhausted or single direct request failed
+                failed_payload = AuditLogPayload(
+                    request_id=request_id_uuid,
+                    api_key_id=api_key.id if api_key else None,
+                    routing_policy_id=matched_policy_id,
+                    routing_policy_version=matched_policy_version,
+                    status="failed",
+                    model_name=current_model_name,
+                    stream_enabled=False,
+                    input_tokens=None,
+                    output_tokens=None,
+                    routing_latency_ms=routing_latency_ms,
+                    provider_latency_ms=provider_latency_ms,
+                    total_duration_ms=total_duration_ms,
+                    error_category=exc.error_type,
+                    strategy_name=strategy_name,
+                    strategy_version=strategy_version,
+                    decision_reason=decision_reason,
+                    candidate_summary=candidate_summary,
+                    decision_latency_ms=decision_latency_ms,
+                    attempt_status="failed",
+                    attempt_error_category=exc.error_type,
+                )
+                background_tasks.add_task(record_request_audit, failed_payload, engine=session.bind)
+
+                return JSONResponse(
+                    content={
+                        "error": {
+                            "message": exc.message,
+                            "type": exc.error_type,
+                            "code": exc.code,
+                        },
+                        "detail": exc.message,
                     },
-                    "detail": exc.message,
-                },
-                status_code=exc.status_code,
-                headers={"X-Request-ID": request_id},
-            )
+                    status_code=exc.status_code,
+                    headers={"X-Request-ID": request_id},
+                )
 
     # 2. Streaming Flow (SSE)
     engine = session.bind

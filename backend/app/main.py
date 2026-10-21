@@ -31,14 +31,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     setup_logging(log_level=settings.log_level, environment=settings.environment)
 
-    # Auto-initialize SQLite database schema on startup for zero-config CLI usage
+    # Auto-initialize SQLite database schema and seed initial defaults on startup
     if "sqlite" in settings.database_url:
         from app.db.base import Base
-        from app.db.session import get_engine
+        from app.db.seed import seed_initial_defaults
+        from app.db.session import get_engine, get_sessionmaker
 
         engine = get_engine()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+        if settings.environment != "test":
+            session_factory = get_sessionmaker()
+            async with session_factory() as session:
+                await seed_initial_defaults(session)
 
     yield
     # Clean shutdown hooks can be placed here
