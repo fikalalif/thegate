@@ -14,17 +14,42 @@
  */
 
 const readline = require("readline");
-const { exec, spawn } = require("child_process");
+const { exec, spawn, execSync } = require("child_process");
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
 const { printLogo, c } = require("./banner");
 
-const VERSION = "1.4.3";
+const VERSION = "1.4.4";
+const GATEWAY_HOST = process.env.THEGATE_HOST || "0.0.0.0";
 const GATEWAY_PORT = process.env.THEGATE_BACKEND_PORT || 8001;
 const WEB_PORT = process.env.THEGATE_WEB_PORT || 3000;
 const GATEWAY_URL = `http://127.0.0.1:${GATEWAY_PORT}`;
 const WEB_URL = `http://127.0.0.1:${WEB_PORT}`;
+
+// Log directory for auditable runtime diagnostics
+const LOG_DIR = path.join(process.env.HOME || "/tmp", ".thegate", "logs");
+try {
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+} catch {}
+const BACKEND_LOG_PATH = path.join(LOG_DIR, "backend.log");
+const FRONTEND_LOG_PATH = path.join(LOG_DIR, "frontend.log");
+
+function showLogTail(logFilePath, title, maxLines = 8) {
+  if (fs.existsSync(logFilePath)) {
+    try {
+      const content = fs.readFileSync(logFilePath, "utf8").trim();
+      if (content) {
+        const lines = content.split("\n").slice(-maxLines);
+        console.log(`\n  ${c.slate}--- ${title} (${logFilePath}) ---${c.reset}`);
+        for (const line of lines) {
+          console.log(`    ${c.dim}${line}${c.reset}`);
+        }
+        console.log(`  ${c.slate}------------------------------------------------------------${c.reset}\n`);
+      }
+    } catch {}
+  }
+}
 
 // Auto-generate local development .env if not present for zero-config CLI usage
 function ensureEnvFile() {
@@ -50,6 +75,49 @@ STORE_PROMPT_CONTENT=false
   }
 }
 
+function isExecutable(binPath) {
+  try {
+    execSync(`"${binPath}" --version`, { stdio: "ignore", timeout: 1500 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Intelligent Python & Virtualenv detection
+function findPythonExecutable() {
+  const backendDir = path.join(__dirname, "..", "backend");
+  const candidates = [
+    process.env.THEGATE_PYTHON,
+    process.env.VIRTUAL_ENV ? path.join(process.env.VIRTUAL_ENV, "bin", "uvicorn") : null,
+    process.env.VIRTUAL_ENV ? path.join(process.env.VIRTUAL_ENV, "bin", "python") : null,
+    path.join(backendDir, ".venv", "bin", "uvicorn"),
+    path.join(backendDir, ".venv", "bin", "python"),
+    path.join(backendDir, "venv", "bin", "uvicorn"),
+    path.join(backendDir, "venv", "bin", "python"),
+    path.join(__dirname, "..", ".venv", "bin", "uvicorn"),
+    path.join(__dirname, "..", ".venv", "bin", "python"),
+    path.join(process.cwd(), "backend", ".venv", "bin", "uvicorn"),
+    path.join(process.cwd(), "backend", ".venv", "bin", "python"),
+    path.join(process.cwd(), ".venv", "bin", "uvicorn"),
+    path.join(process.cwd(), ".venv", "bin", "python"),
+    path.join(process.env.HOME || "", "ai_workspace", "thegate", "backend", ".venv", "bin", "uvicorn"),
+    path.join(process.env.HOME || "", "ai_workspace", "thegate", "backend", ".venv", "bin", "python"),
+    "/workspace/thegate/backend/.venv/bin/uvicorn",
+    "/workspace/thegate/backend/.venv/bin/python",
+  ].filter(Boolean);
+
+  for (const p of candidates) {
+    if (fs.existsSync(p) && isExecutable(p)) {
+      return p;
+    }
+  }
+
+  if (isExecutable("python3")) return "python3";
+  if (isExecutable("python")) return "python";
+  return "python3";
+}
+
 // Open URL in default OS browser
 function openBrowser(url) {
   const start =
@@ -70,13 +138,19 @@ function openBrowser(url) {
 
 // Check if an HTTP endpoint is reachable
 function checkPort(port) {
-  const checkPath = port === 3000 ? "/" : "/health";
+  const isWeb = String(port) === String(WEB_PORT);
+  const checkPath = isWeb ? "/" : "/health";
   return new Promise((resolve) => {
     const req = http.get(`http://127.0.0.1:${port}${checkPath}`, (res) => {
-      resolve(res.statusCode === 200 || res.statusCode === 304);
+      if (isWeb) {
+        // Any 2xx or 3xx status confirms Next.js server is up and responsive
+        resolve(res.statusCode >= 200 && res.statusCode < 400);
+      } else {
+        resolve(res.statusCode === 200 || res.statusCode === 304);
+      }
     });
     req.on("error", () => resolve(false));
-    req.setTimeout(800, () => {
+    req.setTimeout(1500, () => {
       req.destroy();
       resolve(false);
     });
@@ -99,27 +173,72 @@ function printHeader(backendOnline, frontendOnline) {
 function startBackend() {
   ensureEnvFile();
   const backendDir = path.join(__dirname, "..", "backend");
-  const child = spawn(
-    "python3",
-    ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(GATEWAY_PORT)],
-    {
+  const pyExec = findPythonExecutable();
+  const isUvicornBin = pyExec.endsWith("uvicorn");
+  const args = isUvicornBin
+    ? ["app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)]
+    : ["-m", "uvicorn", "app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)];
+
+  try {
+    const logFd = fs.openSync(BACKEND_LOG_PATH, "a");
+    const child = spawn(pyExec, args, {
       cwd: backendDir,
       detached: true,
-      stdio: "ignore",
-    }
-  );
-  child.unref();
+      stdio: ["ignore", logFd, logFd],
+      env: { ...process.env, PYTHONUNBUFFERED: "1" },
+    });
+    child.on("error", (err) => {
+      try {
+        fs.appendFileSync(BACKEND_LOG_PATH, `\n[TheGate Launcher] Backend spawn error: ${err.message}\n`);
+      } catch {}
+    });
+    child.unref();
+  } catch (err) {
+    console.log(`  ${c.fault}Failed to spawn backend process: ${err.message}${c.reset}`);
+  }
 }
 
 // Start Frontend Next.js Server
 function startFrontend() {
   const frontendDir = path.join(__dirname, "..", "frontend");
-  const child = spawn("npm", ["run", "dev"], {
-    cwd: frontendDir,
-    detached: true,
-    stdio: "ignore",
-  });
-  child.unref();
+  const hasNodeModules = fs.existsSync(path.join(frontendDir, "node_modules"));
+  const hasNextBuild = fs.existsSync(path.join(frontendDir, ".next"));
+
+  if (!hasNodeModules) {
+    console.log(`  ${c.telemetry}⚡ Installing frontend dependencies (one-time setup)...${c.reset}`);
+    try {
+      execSync("npm install", { cwd: frontendDir, stdio: "inherit" });
+    } catch (e) {
+      console.log(`  ${c.fault}Failed to install frontend dependencies: ${e.message}${c.reset}`);
+    }
+  }
+
+  const isDev = process.env.THEGATE_DEV === "true";
+  let cmd = "npm";
+  let args = ["run", "dev", "--", "-p", String(WEB_PORT), "-H", GATEWAY_HOST];
+
+  // If built, run in production mode: ~200ms startup, rock-solid, no 404 compilation lags
+  if (hasNextBuild && !isDev) {
+    args = ["run", "start", "--", "-p", String(WEB_PORT), "-H", GATEWAY_HOST];
+  }
+
+  try {
+    const logFd = fs.openSync(FRONTEND_LOG_PATH, "a");
+    const child = spawn(cmd, args, {
+      cwd: frontendDir,
+      detached: true,
+      stdio: ["ignore", logFd, logFd],
+      env: { ...process.env, PORT: String(WEB_PORT), HOSTNAME: GATEWAY_HOST },
+    });
+    child.on("error", (err) => {
+      try {
+        fs.appendFileSync(FRONTEND_LOG_PATH, `\n[TheGate Launcher] Frontend spawn error: ${err.message}\n`);
+      } catch {}
+    });
+    child.unref();
+  } catch (err) {
+    console.log(`  ${c.fault}Failed to spawn frontend process: ${err.message}${c.reset}`);
+  }
 }
 
 async function ensureServicesRunning() {
@@ -130,11 +249,14 @@ async function ensureServicesRunning() {
 
   console.log(`\n  ${c.telemetry}⚡ Initializing TheGate runtime services...${c.reset}`);
   if (!backendOnline) {
-    console.log(`  ${c.brand}▶ Spawning Backend Gateway (Port ${GATEWAY_PORT})...${c.reset}`);
+    const pyPath = findPythonExecutable();
+    console.log(`  ${c.brand}▶ Spawning Backend Gateway (Port ${GATEWAY_PORT}) via ${path.basename(pyPath)}...${c.reset}`);
     startBackend();
   }
   if (!frontendOnline) {
-    console.log(`  ${c.brand}▶ Spawning Frontend Dashboard (Port ${WEB_PORT})...${c.reset}`);
+    const hasNextBuild = fs.existsSync(path.join(__dirname, "..", "frontend", ".next"));
+    const mode = hasNextBuild && process.env.THEGATE_DEV !== "true" ? "production" : "dev";
+    console.log(`  ${c.brand}▶ Spawning Frontend Dashboard (Port ${WEB_PORT}) [${mode}]...${c.reset}`);
     startFrontend();
   }
 
@@ -155,6 +277,12 @@ async function ensureServicesRunning() {
   } else {
     console.log(`  ${c.fault}Could not verify services readiness in time.${c.reset}`);
     console.log(`  ${c.slate}Backend: ${backendOnline ? "ONLINE" : "STOPPED"} | Frontend: ${frontendOnline ? "ONLINE" : "STOPPED"}${c.reset}\n`);
+    if (!backendOnline) {
+      showLogTail(BACKEND_LOG_PATH, "Backend Error Log");
+    }
+    if (!frontendOnline) {
+      showLogTail(FRONTEND_LOG_PATH, "Frontend Error Log");
+    }
     await new Promise((r) => setTimeout(r, 1200));
     return false;
   }
@@ -162,8 +290,10 @@ async function ensureServicesRunning() {
 
 async function stopAllServices() {
   console.log(`\n  ${c.fault}Stopping TheGate backend and frontend services...${c.reset}`);
-  exec("pkill -f 'uvicorn app.main:app' 2>/dev/null || true");
-  exec("pkill -f 'next-dev.*3000|next dev' 2>/dev/null || true");
+  exec("pkill -f 'uvicorn.*app.main:app' 2>/dev/null || true");
+  exec("pkill -f 'next.*(dev|start|server)' 2>/dev/null || true");
+  exec(`fuser -k ${GATEWAY_PORT}/tcp 2>/dev/null || true`);
+  exec(`fuser -k ${WEB_PORT}/tcp 2>/dev/null || true`);
   await new Promise((r) => setTimeout(r, 1200));
   console.log(`  ${c.healthy}✓ Services stopped.${c.reset}\n`);
   await new Promise((r) => setTimeout(r, 1000));
@@ -394,8 +524,16 @@ async function handleArgs(args) {
     console.log(`    thegate start      ${c.slate}Start gateway ingress & web dashboard in background${c.reset}`);
     console.log(`    thegate stop       ${c.slate}Stop all active TheGate services${c.reset}`);
     console.log(`    thegate status     ${c.slate}Inspect cluster status & telemetry overview${c.reset}`);
+    console.log(`    thegate logs       ${c.slate}View backend & frontend runtime error logs${c.reset}`);
     console.log(`    thegate open       ${c.slate}Open web dashboard in default browser${c.reset}`);
     console.log(`    thegate connect    ${c.slate}Launch downstream router wizard (9Router/Ollama)${c.reset}\n`);
+    process.exit(0);
+  }
+
+  if (cmd === "logs") {
+    console.log(`\n  ${c.brand}--- THEGATE RUNTIME LOGS ---${c.reset}`);
+    showLogTail(BACKEND_LOG_PATH, "Backend Gateway Log", 20);
+    showLogTail(FRONTEND_LOG_PATH, "Frontend Web Log", 20);
     process.exit(0);
   }
 

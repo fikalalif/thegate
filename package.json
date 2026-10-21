@@ -1,6 +1,6 @@
 {
   "name": "thegate",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "TheGate — The Control Plane for AI: Intelligent LLM Routing & Operations Cockpit",
   "main": "bin/thegate.js",
   "bin": {
@@ -8,6 +8,7 @@
   },
   "files": [
     "bin",
+    "scripts",
     "backend/app",
     "backend/migrations",
     "backend/alembic.ini",
