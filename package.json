@@ -1,19 +1,16 @@
 {
   "name": "thegate",
-  "version": "1.4.6",
-  "description": "TheGate — The Control Plane for AI: Intelligent LLM Routing & Operations Cockpit",
+  "version": "1.5.0",
+  "description": "TheGate — The Control Plane for AI: Intelligent LLM Routing & Operations Cockpit (Native Fastify Engine)",
   "main": "bin/thegate.js",
   "bin": {
     "thegate": "bin/thegate.js"
   },
   "files": [
-    "bin",
+    "bin/thegate.js",
+    "bin/banner.js",
+    "server",
     "scripts",
-    "backend/app",
-    "backend/migrations",
-    "backend/alembic.ini",
-    "backend/pyproject.toml",
-    "backend/requirements.txt",
     "frontend/src",
     "frontend/public",
     "frontend/package.json",
@@ -25,14 +22,15 @@
     ".env.example",
     "README.md",
     "docker-compose.yml",
-    "!**/__pycache__/**",
-    "!**/*.pyc",
-    "!**/*.pyo",
+    "LICENSE",
     "!frontend/.next/cache/**"
   ],
   "scripts": {
     "thegate": "node ./bin/thegate.js",
-    "dev:backend": "cd backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload",
+    "start": "node ./bin/thegate.js start",
+    "test": "node server/test.js",
+    "test:live": "node server/test_live_completion.js",
+    "dev:backend": "node server/index.js",
     "dev:frontend": "cd frontend && npm run dev",
     "build:frontend": "cd frontend && npm run build",
     "start:frontend": "cd frontend && npm run start -- -p 3000"
@@ -45,7 +43,8 @@
     "gateway",
     "finops",
     "ai-workforce",
-    "thegate"
+    "thegate",
+    "fastify"
   ],
   "repository": {
     "type": "git",
@@ -56,5 +55,12 @@
   },
   "homepage": "https://github.com/fikalalif/thegate#readme",
   "author": "TheGate Core Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@fastify/cors": "^11.3.1",
+    "@fastify/http-proxy": "^11.6.5",
+    "@fastify/static": "^10.1.7",
+    "better-sqlite3": "^13.0.3",
+    "fastify": "^5.12.7"
+  }
 }

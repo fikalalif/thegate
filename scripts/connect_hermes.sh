@@ -6,7 +6,7 @@
 
 set -e
 
-THEGATE_GATEWAY="http://127.0.0.1:8001/v1"
+THEGATE_GATEWAY="http://127.0.0.1:4848/v1"
 NINEROUTER_GATEWAY="http://127.0.0.1:20128/v1"
 HERMES_CONFIG="$HOME/.hermes/config.yaml"
 
@@ -15,7 +15,7 @@ TARGET="${1:-thegate}"
 if [ "$TARGET" = "9router" ] || [ "$TARGET" = "direct" ]; then
     echo "🔄 Switching Hermes directly to 9Router ($NINEROUTER_GATEWAY)..."
     if [ -f "$HERMES_CONFIG" ]; then
-        sed -i 's|base_url: http://.*:8001/v1|base_url: http://localhost:20128/v1|g' "$HERMES_CONFIG"
+        sed -i 's|base_url: http://.*:4848/v1|base_url: http://localhost:20128/v1|g' "$HERMES_CONFIG"
     fi
     export OPENAI_BASE_URL="$NINEROUTER_GATEWAY"
     echo "✓ Hermes is now pointed directly to 9Router."
@@ -25,7 +25,7 @@ fi
 echo "🚀 Connecting Hermes to TheGate Optimization Layer ($THEGATE_GATEWAY)..."
 
 # Ensure TheGate services are running
-if ! curl -s -f "http://127.0.0.1:8001/health" > /dev/null 2>&1; then
+if ! curl -s -f "http://127.0.0.1:4848/health" > /dev/null 2>&1; then
     echo "⚡ Starting TheGate Gateway & Operations Cockpit..."
     if command -v thegate > /dev/null 2>&1; then
         thegate start

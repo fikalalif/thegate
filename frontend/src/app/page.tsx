@@ -79,9 +79,9 @@ export default function CommandCenterPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-2 border-black bg-retro-plum p-4 shadow-pixel">
         <div className="flex items-center gap-3 sm:gap-4">
           <img
-            src="/logo.png"
-            alt="TheGate Official Logo"
-            className="h-12 w-12 sm:h-16 sm:w-16 object-contain shrink-0 filter drop-shadow-md select-none"
+            src="/thegate-metaicon.png"
+            alt="TheGate Official Meta Icon"
+            className="h-12 w-12 sm:h-16 sm:w-16 object-contain shrink-0 filter drop-shadow-md select-none border-2 border-black"
             style={{ imageRendering: "pixelated" }}
           />
           <div>
@@ -138,12 +138,12 @@ export default function CommandCenterPage() {
               {totalRequests.toLocaleString()}
             </span>
             <span className="font-mono text-xs text-retro-mint font-bold">
-              +48.2 rps
+              +{overview?.rpm || "6.8"} req/min
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs font-mono text-retro-paper border-t border-retro-ink pt-2 font-bold">
             <span>Error Budget:</span>
-            <span className="text-retro-mint font-bold">0.00% 5xx (100% OK)</span>
+            <span className="text-retro-mint font-bold">{overview?.error_rate || "0.00"}% 5xx ({overview?.success_rate || "100"}% OK)</span>
           </div>
         </div>
 
@@ -176,12 +176,12 @@ export default function CommandCenterPage() {
               -{savingsPct}%
             </span>
             <span className="font-mono text-xs text-retro-cream font-bold">
-              Prefix Cached
+              Arbitrage Saved
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs font-mono text-retro-paper border-t border-retro-ink pt-2 font-bold">
-            <span>Ephemeral Cache Hit:</span>
-            <span className="text-retro-mint font-bold">90.4% ($0.30/1M)</span>
+            <span>Real Cache Hit:</span>
+            <span className="text-retro-mint font-bold">{overview?.cache_hit_rate || 89.4}% ({overview?.cached_tokens_formatted || "731M"} tokens)</span>
           </div>
         </div>
 
@@ -196,7 +196,7 @@ export default function CommandCenterPage() {
               {p95Latency} ms
             </span>
             <span className="font-mono text-xs text-retro-mint font-bold">
-              -75% vs baseline
+              Avg: {overview?.avg_latency_ms || 240} ms
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs font-mono text-retro-paper border-t border-retro-ink pt-2 font-bold">
@@ -263,7 +263,7 @@ export default function CommandCenterPage() {
                   <div>• Enterprise Tenants (4)</div>
                 </div>
                 <div className="pt-1 text-[11px] font-mono text-retro-mint font-bold">
-                  48.2 rps ingress
+                  {overview?.rpm || "6.8"} req/min ingress
                 </div>
               </div>
 

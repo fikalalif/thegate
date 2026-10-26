@@ -464,7 +464,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </span>
                   </div>
                   <PixelBadge variant="cyan" size="xs">
-                    ONLINE (PORT 8001)
+                    ONLINE (PORT 4848)
                   </PixelBadge>
                 </div>
                 <div className="text-[10px] text-slate-400">

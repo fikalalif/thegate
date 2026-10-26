@@ -1,1 +1,0 @@
-"""TheGate Core Module."""

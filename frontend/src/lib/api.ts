@@ -2,7 +2,9 @@
  * TheGate Dashboard API Client & Type Definitions
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" ? "" : "http://127.0.0.1:4848");
 export const DEFAULT_API_KEY =
   process.env.NEXT_PUBLIC_DEFAULT_API_KEY || "tg_live_dev_test_key_1234567890abcdef";
 
@@ -16,6 +18,15 @@ export interface AnalyticsOverview {
   net_savings_percent: string | null;
   avg_latency_ms: number;
   p95_latency_ms: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  cached_tokens?: number;
+  cache_hit_rate?: number;
+  cached_tokens_formatted?: string;
+  rps?: string;
+  rpm?: string;
+  error_rate?: string;
+  success_rate?: string;
 }
 
 export interface ModelAnalyticsItem {

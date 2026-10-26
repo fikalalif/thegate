@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node -e \"const fs=require('fs'); try{fs.cpSync('public', '.next/standalone/public', {recursive:true, force:true}); fs.cpSync('.next/static', '.next/standalone/.next/static', {recursive:true, force:true});}catch(e){}\"",
     "start": "next start",
     "lint": "next lint"
   },
