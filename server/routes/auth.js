@@ -45,6 +45,7 @@ async function authRoutes(fastify, options) {
 
     const token = createSessionToken();
     return {
+      success: true,
       token,
       is_default_password: password === "12345678",
       message: "Authentication successful",

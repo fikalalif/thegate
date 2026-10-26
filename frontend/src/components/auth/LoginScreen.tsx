@@ -241,7 +241,7 @@ export function LoginScreen() {
             </div>
           </div>
           <PixelBadge variant="mint" size="xs">
-            PORT: 8001
+            PORT: 4848
           </PixelBadge>
         </div>
 

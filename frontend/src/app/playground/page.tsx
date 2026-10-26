@@ -67,7 +67,9 @@ export default function PlaygroundPage() {
     setResultMetadata(null);
 
     const startTime = performance.now();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001";
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL ||
+      (typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:4848");
 
     const messages = [];
     if (systemPrompt.trim()) {

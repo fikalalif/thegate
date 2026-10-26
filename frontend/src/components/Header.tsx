@@ -280,7 +280,7 @@ export function Header() {
           {/* Port Status */}
           <div className="hidden sm:block">
             <PixelBadge variant="mint" size="sm">
-              PORT: 8001
+              PORT: 4848
             </PixelBadge>
           </div>
         </div>

@@ -70,7 +70,7 @@ export function Navbar() {
           </div>
           <div className="flex items-center gap-1.5 text-xs font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 rounded-md px-2.5 py-1">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            Backend: 8001
+            Gateway: 4848
           </div>
         </div>
       </div>
