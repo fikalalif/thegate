@@ -2,7 +2,9 @@
  * TheGate Dashboard API Client & Type Definitions
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:4848");
 export const DEFAULT_API_KEY =
   process.env.NEXT_PUBLIC_DEFAULT_API_KEY || "tg_live_dev_test_key_1234567890abcdef";
 

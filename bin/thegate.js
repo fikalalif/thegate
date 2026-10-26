@@ -20,12 +20,14 @@ const path = require("path");
 const fs = require("fs");
 const { printLogo, c } = require("./banner");
 
-const VERSION = "1.4.6";
+const VERSION = "1.5.0";
 const GATEWAY_HOST = process.env.THEGATE_HOST || "0.0.0.0";
-const GATEWAY_PORT = process.env.THEGATE_BACKEND_PORT || 8001;
-const WEB_PORT = process.env.THEGATE_WEB_PORT || 3000;
-const GATEWAY_URL = `http://127.0.0.1:${GATEWAY_PORT}`;
-const WEB_URL = `http://127.0.0.1:${WEB_PORT}`;
+const UNIFIED_PORT = Number(process.env.THEGATE_PORT || process.env.PORT || 4848);
+const INTERNAL_WEB_PORT = Number(process.env.THEGATE_INTERNAL_WEB_PORT || 4849);
+const GATEWAY_PORT = UNIFIED_PORT;
+const WEB_PORT = INTERNAL_WEB_PORT;
+const GATEWAY_URL = `http://127.0.0.1:${UNIFIED_PORT}`;
+const WEB_URL = `http://127.0.0.1:${UNIFIED_PORT}`;
 
 // Log directory for auditable runtime diagnostics
 const USER_HOME = process.env.USERPROFILE || process.env.HOME || process.env.LOCALAPPDATA || "/tmp";
@@ -208,43 +210,34 @@ function printHeader(backendOnline, frontendOnline) {
   printLogo();
   console.log(`  ${c.slate}The Control Plane for AI: Intelligent LLM Routing & Operations Cockpit (${c.brand}v${VERSION}${c.slate})${c.reset}`);
   console.log(`  ${c.gold}-------------------------------------------------------------------------${c.reset}`);
-  console.log(`  🚀 ${c.slate}Gateway Ingress:${c.reset}  ${c.white}${GATEWAY_URL}${c.reset}  ${backendOnline ? `${c.healthy}[ONLINE]${c.reset}` : `${c.fault}[STOPPED]${c.reset}`}`);
-  console.log(`  🖥️  ${c.slate}Web Operations:${c.reset}   ${c.white}${WEB_URL}${c.reset}      ${frontendOnline ? `${c.healthy}[ONLINE]${c.reset}` : `${c.fault}[STOPPED]${c.reset}`}`);
-  console.log(`  🛡️  ${c.slate}Zero-Prompt Log:${c.reset}  ${c.healthy}[ENFORCED]${c.reset} (Privacy by default)`);
-  console.log(`  ⚡ ${c.slate}Sentinel Watchdog:${c.reset} ${c.telemetry}[ACTIVE < 650ms SLA]${c.reset}`);
+  console.log(`  🌐 ${c.slate}Unified Control Plane:${c.reset} ${c.white}${WEB_URL}${c.reset}  ${backendOnline && frontendOnline ? `${c.healthy}[ONLINE]${c.reset}` : `${c.fault}[STOPPED]${c.reset}`}`);
+  console.log(`  🚀 ${c.slate}Ingress Chat API:     ${c.reset} ${c.white}${GATEWAY_URL}/v1/chat/completions${c.reset}`);
+  console.log(`  🎮 ${c.slate}16-Bit Pixel Office:  ${c.reset} ${c.white}${WEB_URL}/office${c.reset}`);
+  console.log(`  🛡️  ${c.slate}Zero-Prompt Log:      ${c.reset} ${c.healthy}[ENFORCED]${c.reset} (Privacy by default)`);
+  console.log(`  ⚡ ${c.slate}Sentinel Watchdog:    ${c.reset} ${c.telemetry}[ACTIVE < 650ms SLA]${c.reset}`);
   console.log(`  ${c.gold}-------------------------------------------------------------------------${c.reset}\n`);
 }
 
-// Start Backend Ingress
+// Start Backend Ingress (Native Fastify Engine - Zero Python)
 function startBackend() {
   ensureEnvFile();
-  const backendDir = path.join(__dirname, "..", "backend");
-  const standaloneBin = findStandaloneBackendBinary();
+  const serverPath = path.join(__dirname, "..", "server", "index.js");
   const isWin = process.platform === "win32";
-
-  let execFile;
-  let args;
-
-  if (standaloneBin) {
-    execFile = standaloneBin;
-    args = ["--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)];
-  } else {
-    const pyExec = findPythonExecutable();
-    const isUvicornBin = pyExec.endsWith("uvicorn") || pyExec.endsWith("uvicorn.exe");
-    execFile = pyExec;
-    args = isUvicornBin
-      ? ["app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)]
-      : ["-m", "uvicorn", "app.main:app", "--host", GATEWAY_HOST, "--port", String(GATEWAY_PORT)];
-  }
 
   try {
     const logFd = fs.openSync(BACKEND_LOG_PATH, "a");
-    const child = spawn(execFile, args, {
-      cwd: backendDir,
+    const child = spawn(process.execPath || "node", [serverPath], {
+      cwd: path.join(__dirname, ".."),
       detached: !isWin,
       shell: isWin,
       stdio: ["ignore", logFd, logFd],
-      env: { ...process.env, PYTHONUNBUFFERED: "1" },
+      env: {
+        ...process.env,
+        THEGATE_PORT: String(UNIFIED_PORT),
+        PORT: String(UNIFIED_PORT),
+        THEGATE_HOST: GATEWAY_HOST,
+        THEGATE_INTERNAL_WEB_PORT: String(INTERNAL_WEB_PORT),
+      },
     });
     child.on("error", (err) => {
       try {
@@ -269,7 +262,7 @@ function startFrontend() {
   if (hasStandalone && process.env.THEGATE_DEV !== "true") {
     try {
       const logFd = fs.openSync(FRONTEND_LOG_PATH, "a");
-      const child = spawn("node", [standaloneServer], {
+      const child = spawn(process.execPath || "node", [standaloneServer], {
         cwd: path.join(frontendDir, ".next", "standalone"),
         detached: !isWin,
         shell: isWin,
@@ -338,13 +331,7 @@ async function ensureServicesRunning() {
 
   console.log(`\n  ${c.telemetry}⚡ Initializing TheGate runtime services...${c.reset}`);
   if (!backendOnline) {
-    const standaloneBin = findStandaloneBackendBinary();
-    if (standaloneBin) {
-      console.log(`  ${c.brand}▶ Spawning Standalone Backend Gateway (Port ${GATEWAY_PORT}) via ${path.basename(standaloneBin)} [Zero-Python]...${c.reset}`);
-    } else {
-      const pyPath = findPythonExecutable();
-      console.log(`  ${c.brand}▶ Spawning Backend Gateway (Port ${GATEWAY_PORT}) via ${path.basename(pyPath)}...${c.reset}`);
-    }
+    console.log(`  ${c.brand}▶ Spawning Native Fastify Gateway (Port ${GATEWAY_PORT}) [Zero-Python]...${c.reset}`);
     startBackend();
   }
   if (!frontendOnline) {
@@ -395,7 +382,8 @@ async function stopAllServices() {
       execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${WEB_PORT}') do taskkill /f /pid %a 2>nul || true`, { shell: "cmd.exe", stdio: "ignore" });
     } catch {}
   } else {
-    exec("pkill -f 'uvicorn.*app.main:app' 2>/dev/null || true");
+    exec("pkill -f 'thegate.*server/index.js' 2>/dev/null || true");
+    exec("pkill -f 'standalone/server.js' 2>/dev/null || true");
     exec("pkill -f 'next.*(dev|start|server)' 2>/dev/null || true");
     exec(`fuser -k ${GATEWAY_PORT}/tcp 2>/dev/null || true`);
     exec(`fuser -k ${WEB_PORT}/tcp 2>/dev/null || true`);

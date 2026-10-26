@@ -6,10 +6,10 @@
 
 [![npm version](https://img.shields.io/npm/v/thegate?color=blue&label=npm%20package)](https://www.npmjs.com/package/thegate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Node.js: >=20](https://img.shields.io/badge/Node.js-%3E%3D20-green.svg)](https://nodejs.org/)
+[![Fastify: 5.x](https://img.shields.io/badge/Fastify-5.x-000000.svg)](https://fastify.dev/)
 [![Next.js: 14](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Tests: 104 Passing](https://img.shields.io/badge/Tests-104%20Passing-brightgreen.svg)]()
+[![Tests: Passing](https://img.shields.io/badge/Tests-Passing-brightgreen.svg)]()
 
 *Optimize every LLM request, minimize provider costs, and monitor your AI workforce in a retro cyberpunk virtual operations room.*
 
@@ -162,9 +162,9 @@ docker compose up -d
 ```
 
 Once running, access:
-* **API Gateway (FastAPI):** `http://localhost:8001`
-* **Interactive OpenAPI Docs:** `http://localhost:8001/docs`
-* **Operations Dashboard (Next.js):** `http://localhost:3000`
+* **Unified Control Plane & Web Dashboard:** `http://localhost:4848`
+* **Virtual 2D Pixel Office Simulation:** `http://localhost:4848/office`
+* **Chat Completions Ingress API:** `http://localhost:4848/v1/chat/completions`
 
 ---
 
@@ -178,7 +178,7 @@ Because TheGate provides an OpenAI-compatible API, you only need to change your 
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:8001/v1",
+    base_url="http://localhost:4848/v1",
     api_key="thegate_dev_key"  # Or your configured TheGate API Key
 )
 
@@ -201,7 +201,7 @@ print(response.choices[0].message.content)
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "http://localhost:8001/v1",
+  baseURL: "http://localhost:4848/v1",
   apiKey: "thegate_dev_key",
 });
 
@@ -223,7 +223,7 @@ main();
 ### cURL
 
 ```bash
-curl -X POST http://localhost:8001/v1/chat/completions \
+curl -X POST http://localhost:4848/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer thegate_dev_key" \
   -d '{
@@ -243,9 +243,9 @@ curl -X POST http://localhost:8001/v1/chat/completions \
                        (OpenAI SDK / HTTP)
                                 |
                                 v
-                     THEGATE INGRESS GATEWAY
-                     (FastAPI • Port 8001)
-                     [Auth, Rate Limit, RBAC]
+                     THEGATE UNIFIED GATEWAY
+                     (Fastify • Single Port 4848)
+                     [Auth, Proxy, SSE Telemetry]
                                 |
                                 v
                         REQUEST ANALYZER
@@ -317,25 +317,17 @@ thegate/
 │   ├── thegate.js             # CLI process manager (start, stop, status)
 │   └── banner.js              # Retro pixel emblem banner
 │
-├── backend/                   # Python FastAPI Ingress & Routing Engine
-│   ├── app/
-│   │   ├── api/v1/            # API Endpoints (completions, models, policies, analytics)
-│   │   ├── core/              # Config, security, streaming, exception handlers
-│   │   ├── db/models/         # SQLAlchemy models (policies, models, accounting)
-│   │   ├── engine/            # Analyzer, policy evaluator, routing strategies
-│   │   ├── adapters/          # Provider adapters (NineRouterAdapter, MockAdapter)
-│   │   └── main.py            # FastAPI entry point
-│   ├── migrations/            # Alembic schema migrations
-│   └── pyproject.toml
+├── server/                    # Native Fastify Ingress & Routing Engine (Zero-Python)
+│   ├── index.js               # Fastify HTTP Server (:8001) + CORS
+│   ├── db/                    # Cross-platform SQLite layer & Seed defaults
+│   ├── engine/                # Predictive Intent Classifier & Heuristic Routing
+│   ├── adapters/              # 9Router Client, SSE Streaming & Resilient Fallbacks
+│   └── routes/                # Completions, Models, Providers, Policies, Analytics, Roles, Keys, Auth
 │
 ├── frontend/                  # Next.js 14 App Router Dashboard
 │   ├── src/app/               # Pages (Overview, Costs, Models, Workforce, Office)
 │   ├── src/components/        # Pixel art components, office simulation, charts
 │   └── src/lib/               # Typed API client, authentication, i18n
-│
-├── tests/                     # Automated Test Suite (104 Tests)
-│   ├── unit/                  # Routing strategies, policy evaluator, accounting
-│   └── integration/           # Database migrations, provider adapters, API endpoints
 │
 ├── docker-compose.yml         # Containerized orchestration
 ├── .env.example               # Environment variables template
@@ -349,8 +341,11 @@ thegate/
 Ensure all automated tests pass before deploying:
 
 ```bash
-# Run backend pytest suite (104 tests)
-python3 -m pytest tests/ -v
+# Run Fastify backend test suite
+npm test
+
+# Run live 9Router integration test
+npm run test:live
 
 # Run frontend TypeScript validation
 cd frontend && npx tsc --noEmit
@@ -375,6 +370,7 @@ Contributions are welcome! Please read the guidelines in [docs/IMPLEMENTATION_PL
 Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
+
 
 <div align="center">
   <b>Built with ❤️ by TheGate Core Team</b>

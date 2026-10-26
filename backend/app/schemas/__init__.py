@@ -1,1 +1,0 @@
-"""TheGate API Schemas."""
