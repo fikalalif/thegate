@@ -94,7 +94,7 @@ export interface CampusAgent {
   gy: number;
   targetGx: number;
   targetGy: number;
-  state: "idle" | "walking" | "using_pc" | "cafe" | "gym" | "arcade" | "meeting" | "focus" | "reception";
+  state: "idle" | "walking" | "using_pc" | "cafe" | "gym" | "arcade" | "meeting" | "focus" | "reception" | "swimming" | "sunbathing" | "garden";
   stateTicks: number;
   targetPcId?: string;
   currentRoom: string;
@@ -117,9 +117,9 @@ const TILE_H = 22;
 const TILE_HALF_W = 22;
 const TILE_HALF_H = 11;
 
-// Grid Dimensions: 28 cols x 20 rows
+// Grid Dimensions: 28 cols x 22 rows (Expanded with Urban Estate Grounds)
 const GRID_COLS = 28;
-const GRID_ROWS = 20;
+const GRID_ROWS = 22;
 
 // High-Contrast Room Partition Definitions
 export interface RoomZone {
@@ -141,16 +141,16 @@ export interface RoomZone {
 const ROOM_ZONES: RoomZone[] = [
   {
     id: "lobby",
-    name: "Reception & Welcome Lobby",
+    name: "Grand Reception & Visitor Lounge",
     code: "01: LOBBY",
-    x1: 1,
-    y1: 15,
-    x2: 7,
-    y2: 19,
-    darkFloorA: "#2E263B",
-    darkFloorB: "#382F47",
-    lightFloorA: "#EDE2D0",
-    lightFloorB: "#E2D5C1",
+    x1: 10,
+    y1: 9,
+    x2: 15,
+    y2: 13,
+    darkFloorA: "#241E2F",
+    darkFloorB: "#2C2538",
+    lightFloorA: "#F8F4EC",
+    lightFloorB: "#EFE8DA",
     accentColor: "#FFB71B",
     accentGlow: "rgba(255, 183, 27, 0.4)",
   },
@@ -161,26 +161,26 @@ const ROOM_ZONES: RoomZone[] = [
     x1: 1,
     y1: 1,
     x2: 7,
-    y2: 6,
-    darkFloorA: "#1A2B3C",
-    darkFloorB: "#21364A",
-    lightFloorA: "#E4DCCF",
-    lightFloorB: "#DACFBE",
+    y2: 5,
+    darkFloorA: "#0F172A",
+    darkFloorB: "#020617",
+    lightFloorA: "#334155",
+    lightFloorB: "#1E293B",
     accentColor: "#00E5FF",
     accentGlow: "rgba(0, 229, 255, 0.45)",
   },
   {
     id: "director-suite",
-    name: "Executive Director Suite",
+    name: "Executive Director Suite & Library",
     code: "03: DIRECTOR SUITE",
     x1: 8,
     y1: 1,
     x2: 15,
-    y2: 6,
-    darkFloorA: "#45281F",
-    darkFloorB: "#543226",
-    lightFloorA: "#E8D3BF",
-    lightFloorB: "#DFC5AF",
+    y2: 5,
+    darkFloorA: "#4D2612",
+    darkFloorB: "#3B1C0B",
+    lightFloorA: "#9A5B32",
+    lightFloorB: "#874D28",
     accentColor: "#F59E0B",
     accentGlow: "rgba(245, 158, 11, 0.4)",
   },
@@ -191,26 +191,26 @@ const ROOM_ZONES: RoomZone[] = [
     x1: 16,
     y1: 1,
     x2: 27,
-    y2: 10,
-    darkFloorA: "#222B3D",
-    darkFloorB: "#2C374D",
-    lightFloorA: "#E2DCD2",
-    lightFloorB: "#D5CEC2",
+    y2: 8,
+    darkFloorA: "#1E293B",
+    darkFloorB: "#162030",
+    lightFloorA: "#E2E8F0",
+    lightFloorB: "#CBD5E1",
     accentColor: "#34D399",
     accentGlow: "rgba(52, 211, 153, 0.45)",
   },
   {
     id: "boardroom",
-    name: "Boardroom & Strategy Conference",
+    name: "Boardroom & Strategy War Room",
     code: "05: BOARDROOM",
     x1: 1,
-    y1: 7,
-    x2: 7,
-    y2: 14,
-    darkFloorA: "#312347",
-    darkFloorB: "#3D2B57",
-    lightFloorA: "#E2D8CD",
-    lightFloorB: "#D5C8BA",
+    y1: 6,
+    x2: 9,
+    y2: 9,
+    darkFloorA: "#2E2452",
+    darkFloorB: "#231B3E",
+    lightFloorA: "#E0E7FF",
+    lightFloorB: "#C7D2FE",
     accentColor: "#C084FC",
     accentGlow: "rgba(192, 132, 252, 0.4)",
   },
@@ -218,57 +218,58 @@ const ROOM_ZONES: RoomZone[] = [
     id: "focus-pods",
     name: "Soundproof Focus & Phone Pods",
     code: "06: FOCUS PODS",
-    x1: 8,
-    y1: 7,
+    x1: 10,
+    y1: 6,
     x2: 15,
-    y2: 10,
-    darkFloorA: "#1F3447",
-    darkFloorB: "#28435C",
-    lightFloorA: "#DCE3EB",
-    lightFloorB: "#CFD8E2",
+    y2: 8,
+    darkFloorA: "#1E3A5F",
+    darkFloorB: "#172E4C",
+    lightFloorA: "#DBEAFE",
+    lightFloorB: "#BFDBFE",
     accentColor: "#60A5FA",
     accentGlow: "rgba(96, 165, 250, 0.4)",
   },
   {
     id: "pantry-cafeteria",
-    name: "Pantry, Cafeteria & Espresso Bar",
+    name: "Barista Pantry, Kitchen & Bistro",
     code: "07: PANTRY & BISTRO",
-    x1: 8,
-    y1: 11,
-    x2: 17,
-    y2: 19,
-    darkFloorA: "#4A2D1B",
-    darkFloorB: "#5A3822",
-    lightFloorA: "#EDD9C4",
-    lightFloorB: "#DFC6AD",
+    x1: 1,
+    y1: 10,
+    x2: 9,
+    y2: 13,
+    darkFloorA: "#334155",
+    darkFloorB: "#0F172A",
+    lightFloorA: "#FFFFFF",
+    lightFloorB: "#1E293B",
     accentColor: "#FB923C",
     accentGlow: "rgba(251, 146, 60, 0.4)",
   },
   {
-    id: "recreation-gym",
-    name: "Arcade, Recreation & Wellness Gym",
-    code: "08: ARCADE & GYM",
-    x1: 18,
-    y1: 11,
+    id: "resort-pool",
+    name: "Outdoor Resort Pool & Tropical Garden",
+    code: "08: POOL & GARDEN",
+    x1: 0,
+    y1: 14,
     x2: 27,
-    y2: 19,
-    darkFloorA: "#1A3B2E",
-    darkFloorB: "#224A3B",
-    lightFloorA: "#D4E8DC",
-    lightFloorB: "#C5DCCE",
-    accentColor: "#2DD4BF",
-    accentGlow: "rgba(45, 212, 191, 0.4)",
+    y2: 21,
+    darkFloorA: "#0891B2",
+    darkFloorB: "#0E7490",
+    lightFloorA: "#06B6D4",
+    lightFloorB: "#22D3EE",
+    accentColor: "#38BDF8",
+    accentGlow: "rgba(56, 189, 248, 0.5)",
   },
 ];
 
 export const RELAXATION_SPOTS = [
-  { gx: 12, gy: 14, state: "cafe" as const, room: "pantry-cafeteria", activity: "Ngopi di Pantry (Santai)" },
-  { gx: 20, gy: 14, state: "arcade" as const, room: "recreation-gym", activity: "Santai Main Arcade" },
-  { gx: 25, gy: 14, state: "gym" as const, room: "recreation-gym", activity: "Olahraga di Gym" },
-  { gx: 4, gy: 17, state: "reception" as const, room: "lobby", activity: "Santai di Sofa Lobby" },
-  { gx: 11, gy: 8, state: "focus" as const, room: "focus-pods", activity: "Meditasi di Focus Pod" },
-  { gx: 4, gy: 10, state: "meeting" as const, room: "boardroom", activity: "Santai di Boardroom" },
-  { gx: 11, gy: 3, state: "idle" as const, room: "director-suite", activity: "Duduk di Director Suite" },
+  { gx: 6, gy: 12, state: "cafe" as const, room: "pantry-cafeteria", activity: "Ngopi di Bistro (Santai)" },
+  { gx: 22, gy: 18, state: "swimming" as const, room: "resort-pool", activity: "Berenang di Kolam Renang Depan" },
+  { gx: 18, gy: 17, state: "sunbathing" as const, room: "resort-pool", activity: "Berjemur di Kursi Tepi Kolam" },
+  { gx: 5, gy: 18, state: "garden" as const, room: "resort-pool", activity: "Duduk di Taman Bunga Depan" },
+  { gx: 12, gy: 12, state: "reception" as const, room: "lobby", activity: "Santai di Sofa Lobby" },
+  { gx: 11, gy: 7, state: "focus" as const, room: "focus-pods", activity: "Meditasi di Focus Pod" },
+  { gx: 5, gy: 7.5, state: "meeting" as const, room: "boardroom", activity: "Diskusi di Boardroom" },
+  { gx: 11.5, gy: 3, state: "idle" as const, room: "director-suite", activity: "Membaca di Director Suite" },
 ];
 
 export const DEFAULT_FALLBACK_AGENT: CampusAgent = {
@@ -302,19 +303,24 @@ export function getActivityLabel(activity: string | undefined, lang: Language): 
 
   const map: Record<string, { en: string; id: string }> = {
     "cafe": { en: "Having Coffee at Pantry (Relaxing)", id: "Ngopi di Pantry (Santai)" },
-    "arcade": { en: "Playing Arcade Games (Relaxing)", id: "Santai Main Arcade" },
-    "gym": { en: "Working Out at Gym", id: "Olahraga di Gym" },
-    "reception": { en: "Relaxing on Lobby Couch", id: "Santai di Sofa Lobby" },
+    "arcade": { en: "Playing Arcade on Patio (Relaxing)", id: "Santai Main Arcade Patio" },
+    "gym": { en: "Relaxing by the Garden", id: "Duduk di Taman Bunga" },
+    "swimming": { en: "Swimming in Resort Pool (Relaxing)", id: "Berenang di Kolam Renang (Santai)" },
+    "sunbathing": { en: "Sunbathing on Poolside Lounger", id: "Berjemur di Kursi Pantai" },
+    "garden": { en: "Resting on Garden Park Bench", id: "Duduk di Bangku Taman Bunga" },
+    "reception": { en: "Relaxing on Living Room Couch", id: "Santai di Sofa Ruang Tamu" },
     "focus": { en: "Focusing in Soundproof Pod", id: "Meditasi di Focus Pod" },
     "meeting": { en: "Chilling in Boardroom", id: "Santai di Boardroom" },
-    "idle": { en: "Resting in Director Suite", id: "Duduk di Director Suite" },
+    "idle": { en: "Reading in Master Study", id: "Membaca di Master Study" },
     "Ngopi di Pantry (Santai)": { en: "Having Coffee at Pantry (Relaxing)", id: "Ngopi di Pantry (Santai)" },
-    "Santai Main Arcade": { en: "Playing Arcade Games (Relaxing)", id: "Santai Main Arcade" },
-    "Olahraga di Gym": { en: "Working Out at Gym", id: "Olahraga di Gym" },
-    "Santai di Sofa Lobby": { en: "Relaxing on Lobby Couch", id: "Santai di Sofa Lobby" },
+    "Berenang di Kolam Renang (Santai)": { en: "Swimming in Resort Pool (Relaxing)", id: "Berenang di Kolam Renang (Santai)" },
+    "Berjemur di Kursi Pantai": { en: "Sunbathing on Poolside Lounger", id: "Berjemur di Kursi Pantai" },
+    "Duduk di Bangku Taman Bunga": { en: "Resting on Garden Park Bench", id: "Duduk di Bangku Taman Bunga" },
+    "Santai Main Arcade Patio": { en: "Playing Arcade on Patio (Relaxing)", id: "Santai Main Arcade Patio" },
+    "Santai di Sofa Ruang Tamu": { en: "Relaxing on Living Room Couch", id: "Santai di Sofa Ruang Tamu" },
     "Meditasi di Focus Pod": { en: "Focusing in Soundproof Pod", id: "Meditasi di Focus Pod" },
     "Santai di Boardroom": { en: "Chilling in Boardroom", id: "Santai di Boardroom" },
-    "Duduk di Director Suite": { en: "Resting in Director Suite", id: "Duduk di Director Suite" },
+    "Membaca di Master Study": { en: "Reading in Master Study", id: "Membaca di Master Study" },
   };
 
   if (map[activity]) {
@@ -523,18 +529,20 @@ export function OfficeSimulation({
   };
 
   // -------------------------------------------------------------------
-  // 1. Dynamic Workstation PCs Mapping (Antigravity First at BAY 1A)
+  // 1. Dynamic Workstation PCs Mapping (Diverse Multi-Provider Representation)
   // -------------------------------------------------------------------
   const workstationPCs = useMemo<ModelWorkstationPC[]>(() => {
     const cubicleSlots = [
-      { gx: 18, gy: 2, label: "BAY 1A (ANTIGRAVITY)" },
-      { gx: 22, gy: 2, label: "BAY 1B" },
-      { gx: 25, gy: 2, label: "BAY 1C" },
-      { gx: 18, gy: 5, label: "BAY 2A" },
-      { gx: 22, gy: 5, label: "BAY 2B" },
-      { gx: 25, gy: 5, label: "BAY 2C" },
-      { gx: 20, gy: 8, label: "BAY 3A" },
-      { gx: 24, gy: 8, label: "BAY 3B" },
+      { gx: 18, gy: 2, label: "BAY 1 (ANTIGRAVITY)" },
+      { gx: 21, gy: 2, label: "BAY 2 (KIRO AI)" },
+      { gx: 24, gy: 2, label: "BAY 3 (GROQ LLAMA)" },
+      { gx: 27, gy: 2, label: "BAY 4 (DEEPSEEK V4)" },
+      { gx: 18, gy: 5, label: "BAY 5 (NVIDIA AI)" },
+      { gx: 21, gy: 5, label: "BAY 6 (GLM FRONTIER)" },
+      { gx: 24, gy: 5, label: "BAY 7 (GEMINI NATIVE)" },
+      { gx: 27, gy: 5, label: "BAY 8 (CLOUDFLARE AI)" },
+      { gx: 20, gy: 8, label: "BAY 9 (MIMO PRO)" },
+      { gx: 24, gy: 8, label: "BAY 10 (CLAUDE OPUS)" },
     ];
 
     if (!models || models.length === 0) {
@@ -589,9 +597,9 @@ export function OfficeSimulation({
 
     const getCategory = (name: string): ModelWorkstationPC["category"] => {
       const lower = name.toLowerCase();
-      if (lower.includes("coder") || lower.includes("deepseek") || lower.includes("claude")) return "coding";
-      if (lower.includes("o1") || lower.includes("qwen") || lower.includes("glm") || lower.includes("gpt-4o")) return "reasoning";
-      if (lower.includes("mini") || lower.includes("flash") || lower.includes("haiku")) return "speed";
+      if (lower.includes("coder") || lower.includes("deepseek") || lower.includes("claude") || lower.includes("qwen")) return "coding";
+      if (lower.includes("o1") || lower.includes("glm") || lower.includes("gpt-4o") || lower.includes("thinking") || lower.includes("reasoning")) return "reasoning";
+      if (lower.includes("mini") || lower.includes("flash") || lower.includes("haiku") || lower.includes("fast")) return "speed";
       return "flagship";
     };
 
@@ -610,26 +618,59 @@ export function OfficeSimulation({
       }
     };
 
-    // Sort to ensure Antigravity (gemini-3.8-flash-high) is ALWAYS first at BAY 1A
-    const sorted = [...models].sort((a, b) => {
-      const aLower = a.internal_name.toLowerCase();
-      const bLower = b.internal_name.toLowerCase();
-      const aIsAg = aLower.includes("gemini-3.8-flash-high") || aLower.includes("antigravity");
-      const bIsAg = bLower.includes("gemini-3.8-flash-high") || bLower.includes("antigravity");
-      if (aIsAg && !bIsAg) return -1;
-      if (!aIsAg && bIsAg) return 1;
-      return 0;
-    });
+    // Multi-Provider Diversification Algorithm (Representing Full 9Router Armada)
+    const targetProviders = ["ag", "kr", "groq", "ds", "nvidia", "glm", "gemini", "cf", "mimo", "openrouter", "oc"];
+    const providerGroups: Record<string, ModelRegistryItem[]> = {};
 
-    const agModel = sorted.find((m) => m.internal_name.toLowerCase().includes("gemini-3.8-flash-high"));
-    const finalModelsList: ModelRegistryItem[] = [];
-
-    if (agModel) {
-      finalModelsList.push(agModel);
-      sorted.filter((m) => m.id !== agModel.id).forEach((m) => finalModelsList.push(m));
-    } else {
-      finalModelsList.push(...sorted);
+    for (const m of models) {
+      const p = m.internal_name.includes("/") ? m.internal_name.split("/")[0] : "other";
+      if (!providerGroups[p]) providerGroups[p] = [];
+      providerGroups[p].push(m);
     }
+
+    const diverseSelection: ModelRegistryItem[] = [];
+
+    // Slot 1: Primary Antigravity Gemini 3.8 Flash High
+    const agFlash = (providerGroups["ag"] || []).find((m) => m.internal_name.includes("gemini-3.8-flash-high"));
+    if (agFlash) diverseSelection.push(agFlash);
+
+    // Pick top representative model from each provider
+    for (const p of targetProviders) {
+      if (diverseSelection.length >= cubicleSlots.length) break;
+      const list = providerGroups[p] || [];
+      const candidate =
+        list.find((m) => {
+          const lower = m.internal_name.toLowerCase();
+          return (
+            m.id !== agFlash?.id &&
+            !diverseSelection.some((s) => s.id === m.id) &&
+            (lower.includes("sonnet") ||
+              lower.includes("llama-3.3") ||
+              lower.includes("deepseek") ||
+              lower.includes("glm") ||
+              lower.includes("flash") ||
+              lower.includes("pro") ||
+              lower.includes("opus") ||
+              lower.includes("m2") ||
+              lower.includes("m3") ||
+              lower.includes("auto"))
+          );
+        }) || list.find((m) => m.id !== agFlash?.id && !diverseSelection.some((s) => s.id === m.id));
+
+      if (candidate) {
+        diverseSelection.push(candidate);
+      }
+    }
+
+    // Fill remaining slots with any unused models from the registry
+    for (const m of models) {
+      if (diverseSelection.length >= cubicleSlots.length) break;
+      if (!diverseSelection.some((s) => s.id === m.id)) {
+        diverseSelection.push(m);
+      }
+    }
+
+    const finalModelsList = diverseSelection;
 
     if (finalModelsList.length === 0) {
       return cubicleSlots.map((slot, idx) => ({
@@ -1147,14 +1188,16 @@ export function OfficeSimulation({
     const originY = 85;
 
     // -----------------------------------------------------------------
-    // A. Outer Perimeter Back Walls (Architectural Enclosure)
+    // A. Outer Perimeter Building Walls (Indoor Enclosure: gy <= 13.5)
     // -----------------------------------------------------------------
-    const wallH = 74;
+    const wallH = 68;
     const topPt = toIso(0, 0, originX, originY);
     const rightPt = toIso(GRID_COLS, 0, originX, originY);
     const leftPt = toIso(0, GRID_ROWS, originX, originY);
+    const bldgLeftPt = toIso(0, 13.5, originX, originY);
+    const bldgRightPt = toIso(GRID_COLS, 13.5, originX, originY);
 
-    // North-West Wall (Facing South-East)
+    // North-West Wall (Facing South-East) - Across the entire back from top to right
     ctx.fillStyle = isDark ? "#1C2434" : "#D4C7B0";
     ctx.beginPath();
     ctx.moveTo(topPt.x, topPt.y);
@@ -1167,12 +1210,12 @@ export function OfficeSimulation({
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // South-West Wall (Facing North-East)
+    // South-West Wall (Facing North-East) - Only down to the building front (gy = 13.5)
     ctx.fillStyle = isDark ? "#151C2A" : "#C4B59D";
     ctx.beginPath();
     ctx.moveTo(topPt.x, topPt.y);
-    ctx.lineTo(leftPt.x, leftPt.y);
-    ctx.lineTo(leftPt.x, leftPt.y - wallH);
+    ctx.lineTo(bldgLeftPt.x, bldgLeftPt.y);
+    ctx.lineTo(bldgLeftPt.x, bldgLeftPt.y - wallH);
     ctx.lineTo(topPt.x, topPt.y - wallH);
     ctx.closePath();
     ctx.fill();
@@ -1191,17 +1234,17 @@ export function OfficeSimulation({
     ctx.strokeStyle = isDark ? "#38BDF8" : "#1D4ED8";
     ctx.beginPath();
     ctx.moveTo(topPt.x, topPt.y - wallH);
-    ctx.lineTo(leftPt.x, leftPt.y - wallH);
+    ctx.lineTo(bldgLeftPt.x, bldgLeftPt.y - wallH);
     ctx.stroke();
 
-    // Master Signage Banner
+    // Master Signage Banner on Back Wall
     ctx.fillStyle = isDark ? "#FFB71B" : "#B45309";
     ctx.font = "bold 11px 'Silkscreen', monospace";
     ctx.textAlign = "center";
-    ctx.fillText("⚡ THEGATE AI OPERATIONS HEADQUARTERS — MASTER FLOORPLAN", topPt.x + 160, topPt.y - wallH + 26);
+    ctx.fillText("⚡ THEGATE AI URBAN TECH HEADQUARTERS & RESORT (THE SIMS EDITION)", topPt.x + 160, topPt.y - wallH + 26);
 
     // -----------------------------------------------------------------
-    // B. Floor Foundation & Tile Textures (High-Contrast Illuminated Rooms)
+    // B. Floor Foundation & Tile Textures (Indoor Office vs Outdoor Front Yard)
     // -----------------------------------------------------------------
     const defaultHallA = isDark ? "#1B2230" : "#FAF4E8";
     const defaultHallB = isDark ? "#161D2A" : "#F4ECE0";
@@ -1211,13 +1254,49 @@ export function OfficeSimulation({
         const pt = toIso(gx, gy, originX, originY);
         const isAlt = (gx + gy) % 2 === 0;
 
+        // OUTDOOR FRONT YARD (gy >= 14) vs INDOOR OFFICE (gy < 14)
+        const isOutdoor = gy >= 14;
+
+        // 1. City Street & Sidewalk at the front perimeter
+        const isCityStreet = gy >= 21;
+        // 2. Grand Entrance Paved Flagstone Walkway (leading to front doors)
+        const isMainWalkway = isOutdoor && !isCityStreet && gx >= 12 && gx <= 15;
+        // 3. Luxury Resort Swimming Pool (Front Right)
+        const isPoolWater = isOutdoor && !isCityStreet && gx >= 18 && gx <= 26 && gy >= 16 && gy <= 20;
+        // 4. Travertine Stone Pool Deck
+        const isPoolDeck = isOutdoor && !isCityStreet && gx >= 16 && gx <= 27 && !isPoolWater && !isMainWalkway;
+        // 5. Lush Green Tropical Garden Lawn (Front Left)
+        const isGardenGrass = isOutdoor && !isCityStreet && gx < 12;
+
         let tileColor = isAlt ? defaultHallA : defaultHallB;
-        for (const zone of ROOM_ZONES) {
-          if (gx >= zone.x1 && gx <= zone.x2 && gy >= zone.y1 && gy <= zone.y2) {
-            tileColor = isDark
-              ? (isAlt ? zone.darkFloorA : zone.darkFloorB)
-              : (isAlt ? zone.lightFloorA : zone.lightFloorB);
-            break;
+
+        if (isCityStreet) {
+          tileColor = isAlt ? "#1E293B" : "#0F172A";
+        } else if (isPoolWater) {
+          tileColor = isDark
+            ? (isAlt ? "#0284C7" : "#0369A1")
+            : (isAlt ? "#38BDF8" : "#0EA5E9");
+        } else if (isPoolDeck) {
+          tileColor = isDark
+            ? (isAlt ? "#334155" : "#1E293B")
+            : (isAlt ? "#F8FAFC" : "#E2E8F0");
+        } else if (isMainWalkway) {
+          tileColor = isDark
+            ? (isAlt ? "#475569" : "#334155")
+            : (isAlt ? "#E2E8F0" : "#CBD5E1");
+        } else if (isGardenGrass) {
+          tileColor = isDark
+            ? (isAlt ? "#15803D" : "#166534")
+            : (isAlt ? "#22C55E" : "#16A34A");
+        } else {
+          // Indoor Rooms
+          for (const zone of ROOM_ZONES) {
+            if (gx >= zone.x1 && gx <= zone.x2 && gy >= zone.y1 && gy <= zone.y2) {
+              tileColor = isDark
+                ? (isAlt ? zone.darkFloorA : zone.darkFloorB)
+                : (isAlt ? zone.lightFloorA : zone.lightFloorB);
+              break;
+            }
           }
         }
 
@@ -1230,9 +1309,41 @@ export function OfficeSimulation({
         ctx.closePath();
         ctx.fill();
 
-        ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(61, 49, 38, 0.12)";
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
+        // Shimmering Pool Waves
+        if (isPoolWater) {
+          const waveShift = ((animationTick * 0.35) + gx * 2 + gy * 3) % 8;
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(pt.x - 7, pt.y + 11 + (waveShift > 4 ? 1 : -1));
+          ctx.lineTo(pt.x + 7, pt.y + 11 + (waveShift > 4 ? -1 : 1));
+          ctx.stroke();
+        } else if (isGardenGrass) {
+          // Scattered Pixel Garden Flowers
+          if ((gx * 7 + gy * 13) % 4 === 0) {
+            ctx.fillStyle = (gx + gy) % 2 === 0 ? "#EF4444" : "#FACC15";
+            ctx.fillRect(pt.x - 2, pt.y + 9, 3, 3);
+          } else if ((gx * 11 + gy * 3) % 6 === 0) {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(pt.x + 1, pt.y + 8, 2, 2);
+          }
+          ctx.strokeStyle = isDark ? "rgba(20, 83, 45, 0.4)" : "rgba(22, 101, 52, 0.3)";
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        } else if (isCityStreet) {
+          // Yellow dashed road center divider
+          if (gx % 3 === 0 && gy === 21) {
+            ctx.fillStyle = "#FACC15";
+            ctx.fillRect(pt.x - 4, pt.y + 10, 8, 2);
+          }
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(61, 49, 38, 0.12)";
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
       }
     }
 
@@ -1272,7 +1383,7 @@ export function OfficeSimulation({
     ctx.stroke();
 
     // -----------------------------------------------------------------
-    // D. True Solid 3D Partition Walls (Bilik-Bilik Pembatas Berdimensi)
+    // D. True Solid 3D Partition Walls Inside the Building (gy <= 13)
     // -----------------------------------------------------------------
     const drawSolid3DWall = (
       gx1: number,
@@ -1280,7 +1391,7 @@ export function OfficeSimulation({
       gx2: number,
       gy2: number,
       orientation: "x" | "y",
-      height: number = 32,
+      height: number = 28,
       accentColor: string = "#FFB71B"
     ) => {
       const thickness = 0.28;
@@ -1349,33 +1460,83 @@ export function OfficeSimulation({
       ctx.stroke();
     };
 
-    // Partition 1: Server Vault (Room 02) & Boardroom (Room 05) - Along X-axis
-    drawSolid3DWall(1, 6.5, 4.2, 6.5, "x", 32, "#00E5FF");
-    drawSolid3DWall(5.6, 6.5, 7.5, 6.5, "x", 32, "#00E5FF");
+    // Partition 1: Server Vault (Room 02) & Boardroom (Room 05) - Along X at gy = 5.5
+    drawSolid3DWall(1, 5.5, 4.2, 5.5, "x", 28, "#00E5FF");
+    drawSolid3DWall(5.5, 5.5, 7.5, 5.5, "x", 28, "#00E5FF");
 
-    // Partition 2: Server Vault & Director Suite (Room 03) - Along Y-axis
-    drawSolid3DWall(7.5, 1, 7.5, 3.2, "y", 32, "#38BDF8");
-    drawSolid3DWall(7.5, 4.6, 7.5, 6.5, "y", 32, "#38BDF8");
+    // Partition 2: Server Vault & Director Suite (Room 03) - Along Y at gx = 7.5
+    drawSolid3DWall(7.5, 1, 7.5, 3.2, "y", 28, "#38BDF8");
+    drawSolid3DWall(7.5, 4.5, 7.5, 5.5, "y", 28, "#38BDF8");
 
-    // Partition 3: Director Suite & AI Workstations (Room 04) - Along Y-axis
-    drawSolid3DWall(15.5, 1, 15.5, 3.5, "y", 32, "#F59E0B");
-    drawSolid3DWall(15.5, 5.0, 15.5, 6.5, "y", 32, "#F59E0B");
+    // Partition 3: Director Suite & AI Workstations (Room 04) - Along Y at gx = 15.5
+    drawSolid3DWall(15.5, 1, 15.5, 3.2, "y", 28, "#F59E0B");
+    drawSolid3DWall(15.5, 4.5, 15.5, 5.5, "y", 28, "#F59E0B");
 
-    // Partition 4: Boardroom (Room 05) & Lobby (Room 01) - Along X-axis
-    drawSolid3DWall(1, 14.5, 4.2, 14.5, "x", 32, "#C084FC");
-    drawSolid3DWall(5.6, 14.5, 7.5, 14.5, "x", 32, "#C084FC");
+    // Partition 4: Boardroom (Room 05) & Bistro (Room 07) - Along X at gy = 9.5
+    drawSolid3DWall(1, 9.5, 4.5, 9.5, "x", 28, "#C084FC");
+    drawSolid3DWall(6.0, 9.5, 9.5, 9.5, "x", 28, "#C084FC");
 
-    // Partition 5: Focus Pods (Room 06) & Pantry (Room 07) - Along X-axis
-    drawSolid3DWall(8, 10.5, 11.2, 10.5, "x", 32, "#60A5FA");
-    drawSolid3DWall(12.6, 10.5, 15.5, 10.5, "x", 32, "#60A5FA");
+    // Partition 5: Boardroom/Bistro & Focus Pods/Lobby along Y at gx = 9.5
+    drawSolid3DWall(9.5, 6, 9.5, 7.8, "y", 28, "#60A5FA");
+    drawSolid3DWall(9.5, 11, 9.5, 13.5, "y", 28, "#FB923C");
 
-    // Partition 6: AI Workstations (Room 04) & Recreation/Gym (Room 08) - Along X-axis
-    drawSolid3DWall(17.5, 10.5, 22.0, 10.5, "x", 30, "#34D399");
-    drawSolid3DWall(23.8, 10.5, 27.5, 10.5, "x", 30, "#34D399");
+    // Partition 6: Focus Pods & Workstations along Y at gx = 15.5
+    drawSolid3DWall(15.5, 6, 15.5, 8.5, "y", 28, "#60A5FA");
 
-    // Partition 7: Pantry (Room 07) & Recreation (Room 08) - Along Y-axis
-    drawSolid3DWall(17.5, 11.5, 17.5, 15.0, "y", 30, "#FB923C");
-    drawSolid3DWall(17.5, 16.5, 17.5, 19.5, "y", 30, "#FB923C");
+    // Partition 7: Lobby & Workstations along Y at gx = 15.5
+    drawSolid3DWall(15.5, 9.5, 15.5, 11.2, "y", 28, "#34D399");
+
+    // Building Front Glass Facade at gy = 13.8 (Separating Inside from Front Yard)
+    const facadeH = 34;
+    const drawGlassFacade = (x1: number, x2: number) => {
+      const p1 = toIso(x1, 13.8, originX, originY);
+      const p2 = toIso(x2, 13.8, originX, originY);
+
+      ctx.fillStyle = isDark ? "rgba(30, 58, 138, 0.4)" : "rgba(186, 230, 253, 0.4)";
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineTo(p2.x, p2.y - facadeH);
+      ctx.lineTo(p1.x, p1.y - facadeH);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = isDark ? "#38BDF8" : "#0284C7";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const panes = Math.floor((x2 - x1) * 1.5);
+      for (let i = 1; i < panes; i++) {
+        const fx = x1 + (x2 - x1) * (i / panes);
+        const pt = toIso(fx, 13.8, originX, originY);
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y);
+        ctx.lineTo(pt.x, pt.y - facadeH);
+        ctx.stroke();
+      }
+    };
+
+    drawGlassFacade(0.5, 12.0);
+    drawGlassFacade(15.0, 27.5);
+
+    // Automatic Sliding Glass Entrance Door at gx: 12.0 .. 15.0
+    const doorCenter = toIso(13.5, 13.8, originX, originY);
+    ctx.strokeStyle = "#38BDF8";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(doorCenter.x - 22, doorCenter.y - 32, 44, 32);
+    ctx.fillStyle = isDark ? "#FFB71B" : "#B45309";
+    ctx.fillRect(doorCenter.x - 18, doorCenter.y - 2, 36, 4);
+
+    // Entrance Marquee Sign
+    ctx.fillStyle = isDark ? "#0F172A" : "#FFFFFF";
+    ctx.fillRect(doorCenter.x - 46, doorCenter.y - 44, 92, 11);
+    ctx.strokeStyle = isDark ? "#38BDF8" : "#0284C7";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(doorCenter.x - 46, doorCenter.y - 44, 92, 11);
+    ctx.fillStyle = isDark ? "#38BDF8" : "#0369A1";
+    ctx.font = "bold 6px 'Silkscreen', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("🏢 THEGATE TECH HEADQUARTERS", doorCenter.x, doorCenter.y - 36);
 
     // Doorway floor threshold plates
     const drawDoorThreshold = (gx: number, gy: number, color: string) => {
@@ -1393,13 +1554,72 @@ export function OfficeSimulation({
       ctx.stroke();
     };
 
-    drawDoorThreshold(5, 6, isDark ? "#00E5FF" : "#1D4ED8");
-    drawDoorThreshold(7, 4, isDark ? "#38BDF8" : "#0284C7");
-    drawDoorThreshold(15, 4, isDark ? "#F59E0B" : "#D97706");
-    drawDoorThreshold(5, 14, isDark ? "#C084FC" : "#7C3AED");
-    drawDoorThreshold(12, 10, isDark ? "#60A5FA" : "#2563EB");
-    drawDoorThreshold(23, 10, isDark ? "#34D399" : "#059669");
-    drawDoorThreshold(17, 16, isDark ? "#FB923C" : "#EA580C");
+    drawDoorThreshold(5, 5, isDark ? "#00E5FF" : "#1D4ED8");
+    drawDoorThreshold(7.5, 4, isDark ? "#38BDF8" : "#0284C7");
+    drawDoorThreshold(15.5, 4, isDark ? "#F59E0B" : "#D97706");
+    drawDoorThreshold(6, 9.5, isDark ? "#C084FC" : "#7C3AED");
+    drawDoorThreshold(12, 9.5, isDark ? "#60A5FA" : "#2563EB");
+    drawDoorThreshold(15.5, 9, isDark ? "#34D399" : "#059669");
+    drawDoorThreshold(13.5, 14, isDark ? "#FFB71B" : "#B45309");
+
+    // The Sims Urban Estate Perimeter Wrought-Iron Fence with Brick Pillars
+    const drawFence = (x1: number, x2: number, gy: number) => {
+      const p1 = toIso(x1, gy, originX, originY);
+      const p2 = toIso(x2, gy, originX, originY);
+      const fH = 18;
+
+      ctx.strokeStyle = isDark ? "#64748B" : "#1E293B";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y - fH);
+      ctx.lineTo(p2.x, p2.y - fH);
+      ctx.moveTo(p1.x, p1.y - 3);
+      ctx.lineTo(p2.x, p2.y - 3);
+      ctx.stroke();
+
+      ctx.lineWidth = 1;
+      const count = Math.floor((x2 - x1) * 3);
+      for (let i = 0; i <= count; i++) {
+        const fx = x1 + (x2 - x1) * (i / count);
+        const pt = toIso(fx, gy, originX, originY);
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y);
+        ctx.lineTo(pt.x, pt.y - fH - (i % 2 === 0 ? 3 : 1));
+        ctx.stroke();
+      }
+    };
+
+    drawFence(0.5, 12.0, 21.5);
+    drawFence(15.0, 27.5, 21.5);
+
+    // Brick Pillars at regular posts
+    const pillarGXs = [0.5, 4.0, 8.0, 12.0, 15.0, 19.0, 23.0, 27.5];
+    pillarGXs.forEach((gx) => {
+      const pt = toIso(gx, 21.5, originX, originY);
+      const pilW = 8;
+      const pilH = 24;
+      ctx.fillStyle = isDark ? "#78350F" : "#B45309";
+      ctx.fillRect(pt.x - pilW / 2, pt.y - pilH, pilW, pilH);
+      ctx.strokeStyle = "#451A03";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pt.x - pilW / 2, pt.y - pilH, pilW, pilH);
+      ctx.fillStyle = isDark ? "#CBD5E1" : "#E2E8F0";
+      ctx.fillRect(pt.x - (pilW + 2) / 2, pt.y - pilH - 3, pilW + 2, 3);
+      ctx.fillStyle = "#FFB71B";
+      ctx.fillRect(pt.x - 1, pt.y - pilH - 6, 2, 3);
+    });
+
+    // Grand Entrance Security Gate & Arch
+    const gatePt = toIso(13.5, 21.5, originX, originY);
+    ctx.fillStyle = isDark ? "#0F172A" : "#FFFFFF";
+    ctx.fillRect(gatePt.x - 30, gatePt.y - 40, 60, 14);
+    ctx.strokeStyle = "#FFB71B";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(gatePt.x - 30, gatePt.y - 40, 60, 14);
+    ctx.fillStyle = "#FFB71B";
+    ctx.font = "bold 7px 'Silkscreen', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("⛩️ THEGATE ESTATE", gatePt.x, gatePt.y - 30);
 
     // -----------------------------------------------------------------
     // E. Room Header Signage Badges (Distinct Illuminated Signs)
@@ -1424,42 +1644,53 @@ export function OfficeSimulation({
     // F. Detailed Office Furniture & Props
     // -----------------------------------------------------------------
 
-    // ROOM 01: RECEPTION LOBBY
-    const recepDeskPt = toIso(4, 17, originX, originY);
-    ctx.fillStyle = isDark ? "#4B3B28" : "#8C7B65";
-    ctx.fillRect(recepDeskPt.x - 24, recepDeskPt.y - 10, 48, 16);
+    // ROOM 01: GRAND RECEPTION LOBBY & VISITOR LOUNGE (gx: 10..15, gy: 9..13)
+    const recepDeskPt = toIso(12.5, 11, originX, originY);
+    ctx.fillStyle = isDark ? "#3E2616" : "#8C7B65";
+    ctx.fillRect(recepDeskPt.x - 26, recepDeskPt.y - 10, 52, 18);
     ctx.fillStyle = isDark ? "#FFB71B" : "#B45309";
     ctx.font = "bold 7px monospace";
     ctx.textAlign = "center";
-    ctx.fillText("FRONT DESK", recepDeskPt.x, recepDeskPt.y - 14);
+    ctx.fillText("FRONT RECEPTION", recepDeskPt.x, recepDeskPt.y - 14);
 
-    const sofaPt = toIso(2, 18, originX, originY);
+    const sofaPt = toIso(14, 12.5, originX, originY);
     ctx.fillStyle = isDark ? "#5C3A24" : "#A67C52";
-    ctx.fillRect(sofaPt.x - 16, sofaPt.y - 8, 32, 14);
+    ctx.fillRect(sofaPt.x - 22, sofaPt.y - 8, 44, 16);
+    ctx.fillRect(sofaPt.x - 22, sofaPt.y - 15, 10, 15);
+    ctx.strokeStyle = "#2D1B10";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sofaPt.x - 22, sofaPt.y - 8, 44, 16);
 
-    // ROOM 02: INGRESS SERVER VAULT
-    const serverPt = toIso(4, 2, originX, originY);
-    ctx.fillStyle = isDark ? "#0A1017" : "#2D3748";
-    ctx.fillRect(serverPt.x - 24, serverPt.y - 48, 48, 54);
-    ctx.strokeStyle = "#00E5FF";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(serverPt.x - 24, serverPt.y - 48, 48, 54);
+    const coffeeTablePt = toIso(11, 12.5, originX, originY);
+    ctx.fillStyle = isDark ? "#1E293B" : "#E2E8F0";
+    ctx.fillRect(coffeeTablePt.x - 12, coffeeTablePt.y - 6, 24, 12);
+    ctx.strokeStyle = "#38BDF8";
+    ctx.strokeRect(coffeeTablePt.x - 12, coffeeTablePt.y - 6, 24, 12);
 
-    for (let ly = serverPt.y - 42; ly < serverPt.y - 4; ly += 6) {
+    // ROOM 02: INGRESS SERVER VAULT (gx: 1..7, gy: 1..5)
+    [toIso(2.5, 2.2, originX, originY), toIso(4.5, 2.2, originX, originY), toIso(6.5, 2.2, originX, originY)].forEach((sPt, idx) => {
+      ctx.fillStyle = isDark ? "#0A1017" : "#1E293B";
+      ctx.fillRect(sPt.x - 14, sPt.y - 42, 28, 46);
+      ctx.strokeStyle = "#00E5FF";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(sPt.x - 14, sPt.y - 42, 28, 46);
+
+      for (let ly = sPt.y - 36; ly < sPt.y - 4; ly += 6) {
+        ctx.fillStyle = idx === 0 ? "#00E5FF" : (idx === 1 ? "#34D399" : "#C084FC");
+        ctx.fillRect(sPt.x - 10, ly, 6, 2.5);
+        ctx.fillStyle = (animationTick + idx) % 4 < 2 ? "#34D399" : "#FFB71B";
+        ctx.fillRect(sPt.x - 2, ly, 8, 2.5);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(sPt.x + 8, ly, 4, 2.5);
+      }
       ctx.fillStyle = "#00E5FF";
-      ctx.fillRect(serverPt.x - 18, ly, 8, 2.5);
-      ctx.fillStyle = animationTick % 4 < 2 ? "#34D399" : "#FFB71B";
-      ctx.fillRect(serverPt.x - 6, ly, 10, 2.5);
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(serverPt.x + 8, ly, 8, 2.5);
-    }
-    ctx.fillStyle = "#00E5FF";
-    ctx.font = "bold 7px 'Silkscreen', monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("INGRESS RACK", serverPt.x, serverPt.y - 52);
+      ctx.font = "bold 6px 'Silkscreen', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(`RACK 0${idx + 1}`, sPt.x, sPt.y - 45);
+    });
 
-    // ROOM 03: EXECUTIVE DIRECTOR SUITE
-    const execDeskPt = toIso(11, 3, originX, originY);
+    // ROOM 03: EXECUTIVE DIRECTOR SUITE (gx: 8..15, gy: 1..5)
+    const execDeskPt = toIso(11.5, 3.2, originX, originY);
     ctx.fillStyle = isDark ? "#5C3622" : "#8B5A3C";
     ctx.fillRect(execDeskPt.x - 28, execDeskPt.y - 12, 56, 18);
     ctx.fillStyle = isDark ? "#FFB71B" : "#FAF4E8";
@@ -1467,32 +1698,36 @@ export function OfficeSimulation({
     ctx.textAlign = "center";
     ctx.fillText("DIRECTOR SUITE", execDeskPt.x, execDeskPt.y - 16);
 
-    const shelfPt = toIso(9, 1.5, originX, originY);
+    const shelfPt = toIso(9.5, 1.8, originX, originY);
     ctx.fillStyle = isDark ? "#3D2012" : "#6E452B";
-    ctx.fillRect(shelfPt.x - 14, shelfPt.y - 28, 28, 30);
+    ctx.fillRect(shelfPt.x - 18, shelfPt.y - 32, 36, 34);
+    ctx.fillStyle = "#F59E0B";
+    ctx.fillRect(shelfPt.x - 14, shelfPt.y - 28, 28, 2);
+    ctx.fillRect(shelfPt.x - 14, shelfPt.y - 18, 28, 2);
+    ctx.fillRect(shelfPt.x - 14, shelfPt.y - 8, 28, 2);
 
-    // ROOM 05: BOARDROOM CONFERENCE SUITE
-    const boardTablePt = toIso(4, 10, originX, originY);
+    // ROOM 05: BOARDROOM CONFERENCE SUITE (gx: 1..9, gy: 6..9)
+    const boardTablePt = toIso(5, 7.5, originX, originY);
     ctx.fillStyle = isDark ? "#382952" : "#64748B";
-    ctx.fillRect(boardTablePt.x - 34, boardTablePt.y - 16, 68, 28);
+    ctx.fillRect(boardTablePt.x - 38, boardTablePt.y - 16, 76, 28);
     ctx.strokeStyle = isDark ? "#C084FC" : "#475569";
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(boardTablePt.x - 34, boardTablePt.y - 16, 68, 28);
+    ctx.strokeRect(boardTablePt.x - 38, boardTablePt.y - 16, 76, 28);
 
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 7px monospace";
     ctx.textAlign = "center";
-    ctx.fillText("BOARDROOM MATRIX", boardTablePt.x, boardTablePt.y - 4);
+    ctx.fillText("AI ARBITRAGE WAR ROOM", boardTablePt.x, boardTablePt.y - 4);
 
-    for (let c = -20; c <= 20; c += 14) {
+    for (let c = -24; c <= 24; c += 12) {
       ctx.fillStyle = isDark ? "#FFB71B" : "#B45309";
       ctx.fillRect(boardTablePt.x + c - 3, boardTablePt.y - 20, 6, 4);
       ctx.fillRect(boardTablePt.x + c - 3, boardTablePt.y + 13, 6, 4);
     }
 
-    // ROOM 06: SOUNDPROOF FOCUS PODS
-    const pod1Pt = toIso(10, 8, originX, originY);
-    const pod2Pt = toIso(13, 8, originX, originY);
+    // ROOM 06: SOUNDPROOF FOCUS PODS (gx: 10..15, gy: 6..8)
+    const pod1Pt = toIso(11, 7, originX, originY);
+    const pod2Pt = toIso(13.5, 7, originX, originY);
     [pod1Pt, pod2Pt].forEach((pt, idx) => {
       ctx.fillStyle = isDark ? "rgba(30, 58, 138, 0.45)" : "rgba(96, 165, 250, 0.25)";
       ctx.fillRect(pt.x - 16, pt.y - 28, 32, 34);
@@ -1505,64 +1740,179 @@ export function OfficeSimulation({
       ctx.fillText(`POD #${idx + 1}`, pt.x, pt.y - 31);
     });
 
-    // ROOM 07: KITCHEN, PANTRY & CAFETERIA
-    const cafeBarPt = toIso(11, 13, originX, originY);
+    // ROOM 07: KITCHEN, PANTRY & BISTRO (gx: 1..9, gy: 10..13)
+    const cafeBarPt = toIso(4, 10.5, originX, originY);
     ctx.fillStyle = isDark ? "#8C4318" : "#B45309";
-    ctx.fillRect(cafeBarPt.x - 36, cafeBarPt.y - 12, 72, 18);
-    ctx.fillStyle = isDark ? "#EA580C" : "#D97706";
-    ctx.fillRect(cafeBarPt.x - 36, cafeBarPt.y - 12, 72, 3);
-
+    ctx.fillRect(cafeBarPt.x - 34, cafeBarPt.y - 10, 68, 16);
     ctx.fillStyle = "#D97706";
-    ctx.fillRect(cafeBarPt.x - 24, cafeBarPt.y - 26, 16, 14);
+    ctx.fillRect(cafeBarPt.x - 22, cafeBarPt.y - 24, 16, 14);
     ctx.fillStyle = isDark ? "#FEF3C7" : "#FFFBEB";
     ctx.font = "bold 7px monospace";
-    ctx.fillText("☕ ESPRESSO", cafeBarPt.x - 14, cafeBarPt.y - 29);
+    ctx.fillText("☕ ESPRESSO BAR", cafeBarPt.x - 14, cafeBarPt.y - 27);
 
-    const fridgePt = toIso(15, 12, originX, originY);
+    const fridgePt = toIso(2, 10.5, originX, originY);
     ctx.fillStyle = isDark ? "#64748B" : "#CBD5E1";
-    ctx.fillRect(fridgePt.x - 12, fridgePt.y - 34, 24, 36);
+    ctx.fillRect(fridgePt.x - 10, fridgePt.y - 30, 20, 32);
     ctx.strokeStyle = "#334155";
-    ctx.strokeRect(fridgePt.x - 12, fridgePt.y - 34, 24, 36);
+    ctx.strokeRect(fridgePt.x - 10, fridgePt.y - 30, 20, 32);
 
-    const diningPt = toIso(13, 17, originX, originY);
+    const diningPt = toIso(6, 12, originX, originY);
     ctx.fillStyle = isDark ? "#9A6340" : "#A67C52";
     ctx.beginPath();
-    ctx.ellipse(diningPt.x, diningPt.y, 22, 10, 0, 0, Math.PI * 2);
+    ctx.ellipse(diningPt.x, diningPt.y, 20, 9, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = isDark ? "#FB923C" : "#B45309";
     ctx.stroke();
 
-    // ROOM 08: ARCADE & WELLNESS GYM
-    const arcadePt = toIso(20, 14, originX, originY);
-    ctx.fillStyle = "#2E1065";
-    ctx.fillRect(arcadePt.x - 14, arcadePt.y - 32, 28, 36);
-    ctx.strokeStyle = "#A855F7";
-    ctx.strokeRect(arcadePt.x - 14, arcadePt.y - 32, 28, 36);
-    ctx.fillStyle = animationTick % 6 < 3 ? "#F43F5E" : "#38BDF8";
-    ctx.fillRect(arcadePt.x - 10, arcadePt.y - 26, 20, 14);
+    const vendingPt = toIso(8.5, 10.5, originX, originY);
+    ctx.fillStyle = "#1E293B";
+    ctx.fillRect(vendingPt.x - 10, vendingPt.y - 30, 20, 32);
+    ctx.strokeStyle = "#F59E0B";
+    ctx.strokeRect(vendingPt.x - 10, vendingPt.y - 30, 20, 32);
+    ctx.fillStyle = animationTick % 4 < 2 ? "#34D399" : "#38BDF8";
+    ctx.fillRect(vendingPt.x - 7, vendingPt.y - 24, 14, 12);
+
+    // OUTDOOR FRONT YARD (gy >= 14): THE SIMS LUXURY RESORT POOL & TROPICAL GARDEN
+    // 1. Chrome Pool Ladder at (18.5, 15)
+    const ladderPt = toIso(18.5, 15, originX, originY);
+    ctx.strokeStyle = "#CBD5E1";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ladderPt.x - 6, ladderPt.y - 10);
+    ctx.lineTo(ladderPt.x - 6, ladderPt.y + 6);
+    ctx.moveTo(ladderPt.x + 6, ladderPt.y - 10);
+    ctx.lineTo(ladderPt.x + 6, ladderPt.y + 6);
+    ctx.moveTo(ladderPt.x - 6, ladderPt.y - 3);
+    ctx.lineTo(ladderPt.x + 6, ladderPt.y - 3);
+    ctx.moveTo(ladderPt.x - 6, ladderPt.y + 2);
+    ctx.lineTo(ladderPt.x + 6, ladderPt.y + 2);
+    ctx.stroke();
+
+    // 2. Cute Inflatable Floating Duck on Pool Water
+    const floatBob = Math.sin(animationTick * 0.12) * 2;
+    const floatPt = toIso(21.5, 17.5, originX, originY);
+    const floatY = floatPt.y + 6 + floatBob;
     ctx.fillStyle = "#FDE047";
-    ctx.font = "bold 6px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("THEGATE 16b", arcadePt.x, arcadePt.y - 35);
+    ctx.beginPath();
+    ctx.ellipse(floatPt.x, floatY, 14, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#CA8A04";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = isDark ? "#0284C7" : "#0EA5E9";
+    ctx.beginPath();
+    ctx.ellipse(floatPt.x, floatY, 5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#FDE047";
+    ctx.beginPath();
+    ctx.arc(floatPt.x + 9, floatY - 5, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#EA580C";
+    ctx.fillRect(floatPt.x + 12, floatY - 6, 4, 2.5);
 
-    const treadmillPt = toIso(25, 14, originX, originY);
-    ctx.fillStyle = "#334155";
-    ctx.fillRect(treadmillPt.x - 18, treadmillPt.y - 10, 36, 16);
-    ctx.fillStyle = "#EF4444";
-    ctx.font = "bold 7px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("⚡ TREADMILL", treadmillPt.x, treadmillPt.y - 14);
+    // 3. Poolside Sun Loungers (Kursi Santai Jemur)
+    const lounger1Pt = toIso(17, 16.5, originX, originY);
+    const lounger2Pt = toIso(17, 18.5, originX, originY);
+    [lounger1Pt, lounger2Pt].forEach((lPt, idx) => {
+      ctx.fillStyle = isDark ? "#E2E8F0" : "#FFFFFF";
+      ctx.fillRect(lPt.x - 13, lPt.y - 4, 26, 9);
+      ctx.strokeStyle = "#475569";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lPt.x - 13, lPt.y - 4, 26, 9);
+      ctx.fillStyle = idx === 0 ? "#38BDF8" : "#FB923C";
+      ctx.fillRect(lPt.x - 13, lPt.y - 7, 8, 7);
+      ctx.strokeRect(lPt.x - 13, lPt.y - 7, 8, 7);
+    });
 
-    const plant1Pt = toIso(7, 19, originX, originY);
-    const plant2Pt = toIso(18, 19, originX, originY);
-    [plant1Pt, plant2Pt].forEach((pt) => {
-      ctx.fillStyle = isDark ? "#15803D" : "#166534";
+    // 4. Striped Beach Parasol Umbrella (Payung Pantai)
+    const umbrellaPt = toIso(16.5, 15, originX, originY);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+    ctx.beginPath();
+    ctx.ellipse(umbrellaPt.x + 6, umbrellaPt.y + 4, 18, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#94A3B8";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(umbrellaPt.x, umbrellaPt.y + 4);
+    ctx.lineTo(umbrellaPt.x, umbrellaPt.y - 32);
+    ctx.stroke();
+    const uY = umbrellaPt.y - 32;
+    ctx.fillStyle = "#F97316";
+    ctx.beginPath();
+    ctx.arc(umbrellaPt.x, uY, 22, Math.PI, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#C2410C";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.moveTo(umbrellaPt.x - 7, uY);
+    ctx.lineTo(umbrellaPt.x, uY - 22);
+    ctx.lineTo(umbrellaPt.x + 7, uY);
+    ctx.closePath();
+    ctx.fill();
+
+    // 5. Potted Tropical Palm / Monstera Trees in Garden
+    [toIso(2, 19, originX, originY), toIso(10, 19, originX, originY)].forEach((palmPt) => {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
       ctx.beginPath();
-      ctx.arc(pt.x, pt.y - 8, 8, 0, Math.PI * 2);
+      ctx.ellipse(palmPt.x + 4, palmPt.y + 4, 18, 9, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#78350F";
-      ctx.fillRect(pt.x - 4, pt.y, 8, 6);
+      ctx.fillRect(palmPt.x - 3, palmPt.y - 24, 6, 26);
+      ctx.fillStyle = isDark ? "#15803D" : "#22C55E";
+      ctx.beginPath();
+      ctx.arc(palmPt.x, palmPt.y - 28, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = isDark ? "#16A34A" : "#4ADE80";
+      ctx.beginPath();
+      ctx.arc(palmPt.x - 5, palmPt.y - 34, 10, 0, Math.PI * 2);
+      ctx.arc(palmPt.x + 5, palmPt.y - 34, 10, 0, Math.PI * 2);
+      ctx.fill();
     });
+
+    // 6. Wooden Garden Park Bench at (5, 18)
+    const benchPt = toIso(5, 18, originX, originY);
+    ctx.fillStyle = "#92400E";
+    ctx.fillRect(benchPt.x - 14, benchPt.y - 7, 28, 10);
+    ctx.strokeStyle = "#451A03";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(benchPt.x - 14, benchPt.y - 7, 28, 10);
+
+    // 7. Outdoor Stone BBQ Grill with animated smoke puffs
+    const bbqPt = toIso(8, 16.5, originX, originY);
+    ctx.fillStyle = "#475569";
+    ctx.fillRect(bbqPt.x - 10, bbqPt.y - 18, 20, 20);
+    ctx.strokeStyle = "#1E293B";
+    ctx.strokeRect(bbqPt.x - 10, bbqPt.y - 18, 20, 20);
+    ctx.fillStyle = "#0F172A";
+    ctx.fillRect(bbqPt.x - 8, bbqPt.y - 16, 16, 6);
+    const smokeY = bbqPt.y - 22 - ((animationTick * 0.4) % 16);
+    const smokeAlpha = 1 - (((animationTick * 0.4) % 16) / 16);
+    ctx.fillStyle = `rgba(203, 213, 225, ${smokeAlpha})`;
+    ctx.beginPath();
+    ctx.arc(bbqPt.x - 1, smokeY, 3, 0, Math.PI * 2);
+    ctx.arc(bbqPt.x + 3, smokeY - 2, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 8. Vintage Streetlamp with soft amber glow
+    const lampPt = toIso(3, 16.5, originX, originY);
+    ctx.strokeStyle = "#1E293B";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(lampPt.x, lampPt.y);
+    ctx.lineTo(lampPt.x, lampPt.y - 36);
+    ctx.stroke();
+    ctx.fillStyle = "#F59E0B";
+    ctx.beginPath();
+    ctx.arc(lampPt.x, lampPt.y - 38, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(245, 158, 11, 0.25)";
+    ctx.beginPath();
+    ctx.arc(lampPt.x, lampPt.y - 38, 14, 0, Math.PI * 2);
+    ctx.fill();
 
     // -----------------------------------------------------------------
     // G. ROOM 04: Render Workstation PC Desks in Cubicle Bays
@@ -1640,18 +1990,26 @@ export function OfficeSimulation({
       ctx.ellipse(chairPt.x, chairPt.y, 8, 5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Model Identification Tag Banner
+      // Model Identification Tag Banner (Vibrant Multi-Provider Badge)
       ctx.fillStyle = isDark ? "#0F172A" : "#FFFFFF";
       ctx.strokeStyle = pc.screenGlow;
       ctx.lineWidth = 1.5;
-      const tag = pc.internalName.length > 15 ? pc.internalName.slice(0, 14) + "…" : pc.internalName;
-      ctx.strokeRect(pt.x - 34, monY - 14, 68, 12);
-      ctx.fillRect(pt.x - 34, monY - 14, 68, 12);
 
-      ctx.fillStyle = isDark ? "#F9FAFB" : "#1A1423";
+      let displayTag = pc.internalName;
+      if (pc.internalName.includes("/")) {
+        const [prov, mName] = pc.internalName.split("/");
+        displayTag = `[${prov.toUpperCase()}] ${mName.length > 10 ? mName.slice(0, 9) + "…" : mName}`;
+      } else if (displayTag.length > 15) {
+        displayTag = displayTag.slice(0, 14) + "…";
+      }
+
+      ctx.strokeRect(pt.x - 38, monY - 14, 76, 12);
+      ctx.fillRect(pt.x - 38, monY - 14, 76, 12);
+
+      ctx.fillStyle = isDark ? pc.screenGlow : "#0F172A";
       ctx.font = "bold 7px 'Silkscreen', monospace";
       ctx.textAlign = "center";
-      ctx.fillText(tag, pt.x, monY - 5);
+      ctx.fillText(displayTag, pt.x, monY - 5);
     };
 
     workstationPCs.forEach((pc) => {
@@ -1717,6 +2075,84 @@ export function OfficeSimulation({
         ctx.strokeStyle = "#FFB71B";
         ctx.lineWidth = 1.5;
         ctx.strokeRect(pt.x - 9, cy - 11, 18, 30);
+      }
+
+      // -------------------------------------------------------------
+      // The Sims Iconic Green Plumbob (Rotating / Bobbing 3D Diamond)
+      // -------------------------------------------------------------
+      const isSpeaking = Boolean(activeSpeaker && activeSpeaker.id === agent.id);
+      const isWorking = agent.state === "using_pc";
+
+      if (isSelected || isSpeaking || isWorking) {
+        const pbBob = Math.sin((animationTick * 0.22) + (agent.gx * 0.5)) * 3;
+        const pbY = cy - 22 + pbBob;
+        const pbW = 4.5;
+        const pbH = 8;
+
+        ctx.save();
+        ctx.fillStyle = isWorking ? "#22C55E" : (isSpeaking ? "#4ADE80" : "#10B981");
+        ctx.strokeStyle = "#064E3B";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pbY - pbH);
+        ctx.lineTo(pt.x + pbW, pbY);
+        ctx.lineTo(pt.x, pbY + 2);
+        ctx.lineTo(pt.x - pbW, pbY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = isWorking ? "#86EFAC" : (isSpeaking ? "#A7F3D0" : "#34D399");
+        ctx.beginPath();
+        ctx.moveTo(pt.x - pbW, pbY);
+        ctx.lineTo(pt.x + pbW, pbY);
+        ctx.lineTo(pt.x, pbY + pbH);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // The Sims Swimming Effect: Water Submersion & Ripples
+      if (agent.state === "swimming") {
+        const ripShift = (animationTick * 0.3) % 6;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(pt.x, cy + 12, 11 + ripShift, 5.5 + ripShift * 0.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // The Sims Sunbathing Sunglasses
+      if (agent.state === "sunbathing") {
+        ctx.fillStyle = "#0F172A";
+        ctx.fillRect(pt.x - 4, cy - 3, 9, 3);
+        ctx.fillStyle = "#38BDF8";
+        ctx.fillRect(pt.x - 3, cy - 2, 2, 1);
+        ctx.fillRect(pt.x + 2, cy - 2, 2, 1);
+      }
+
+      // The Sims Playful Thought Bubbles for Relaxing Agents
+      if (!agent.dialogue && (agent.state === "cafe" || agent.state === "arcade" || agent.state === "swimming" || agent.state === "sunbathing" || agent.state === "garden")) {
+        const emojiMap: Record<string, string> = {
+          cafe: "☕",
+          arcade: "🕹️",
+          swimming: "🏊",
+          sunbathing: "🏖️",
+          garden: "🌸",
+        };
+        const em = emojiMap[agent.state] || "💭";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.beginPath();
+        ctx.arc(pt.x + 8, cy - 14, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#1E293B";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = "#000000";
+        ctx.font = "8px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(em, pt.x + 8, cy - 11);
       }
 
       // If agent has dialogue but is NOT the chosen active speaker, render subtle 💬 icon
@@ -1982,22 +2418,22 @@ export function OfficeSimulation({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-pixel text-sm tracking-wider text-white">
-                THEGATE <span className="text-retro-amber">CAMPUS</span>
+                THEGATE <span className="text-retro-amber">ESTATE & VILLA</span>
               </span>
               <PixelBadge variant="mint" size="xs">
-                ISOMETRIC 16-BIT
+                THE SIMS 16-BIT
               </PixelBadge>
             </div>
             <p className="text-[10px] font-mono text-slate-300 mt-0.5">
-              Live AI Operations & Routing Headquarters • Top-Down 3D Perspective
+              Live AI Operations Estate • Resort Pool & Courtyard Garden • Isometric 3D
             </p>
           </div>
         </div>
         <div className="hidden sm:flex items-center gap-2 font-mono text-xs text-retro-paper">
           <img
-            src="/icon.png"
+            src="/thegate-metaicon.png"
             alt="TheGate Meta Icon"
-            className="h-7 w-7 object-contain border border-black shadow-pixel-xs"
+            className="h-8 w-8 object-contain border border-black shadow-pixel-xs"
             style={{ imageRendering: "pixelated" }}
           />
           <span>Sentinel Protocol: <strong className="text-retro-mint">ARMED</strong></span>
@@ -2091,14 +2527,14 @@ export function OfficeSimulation({
             07: BISTRO
           </button>
           <button
-            onClick={() => focusRoom("recreation-gym")}
+            onClick={() => focusRoom("resort-pool")}
             className={`shrink-0 px-2 py-1 font-pixel text-xs border-2 border-black transition-none cursor-pointer ${
-              activeRoomFocus === "recreation-gym"
+              activeRoomFocus === "resort-pool" || activeRoomFocus === "recreation-gym"
                 ? "bg-retro-amber text-black shadow-pixel-sm font-bold"
                 : "bg-retro-coal text-retro-cream hover:bg-retro-sand hover:text-black"
             }`}
           >
-            08: ARCADE & GYM
+            🏊 08: POOL & GARDEN
           </button>
         </div>
 

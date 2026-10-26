@@ -265,9 +265,9 @@ function startFrontend() {
       const child = spawn(process.execPath || "node", [standaloneServer], {
         cwd: path.join(frontendDir, ".next", "standalone"),
         detached: !isWin,
-        shell: isWin,
+        shell: false,
         stdio: ["ignore", logFd, logFd],
-        env: { ...process.env, PORT: String(WEB_PORT), HOSTNAME: GATEWAY_HOST },
+        env: { ...process.env, PORT: String(WEB_PORT), HOSTNAME: "0.0.0.0" },
       });
       child.on("error", (err) => {
         try {

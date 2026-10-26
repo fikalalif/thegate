@@ -9,6 +9,8 @@ const proxy = require("@fastify/http-proxy");
 const fastifyStatic = require("@fastify/static");
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
+const { spawn } = require("child_process");
 const db = require("./db/index");
 const { seedDefaults } = require("./db/seed");
 
@@ -88,8 +90,71 @@ async function buildServer(options = {}) {
   return fastify;
 }
 
+let nextWorker = null;
+
+function waitForPort(port, timeoutMs = 8000) {
+  const startT = Date.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      const req = http.get(`http://127.0.0.1:${port}/`, (res) => {
+        resolve(true);
+      });
+      req.on("error", () => {
+        if (Date.now() - startT > timeoutMs) {
+          resolve(false);
+        } else {
+          setTimeout(check, 150);
+        }
+      });
+      req.setTimeout(500, () => {
+        req.destroy();
+        if (Date.now() - startT > timeoutMs) resolve(false);
+        else setTimeout(check, 150);
+      });
+    };
+    check();
+  });
+}
+
+function startNextWorker() {
+  const standaloneServer = path.join(__dirname, "..", "frontend", ".next", "standalone", "server.js");
+  if (!fs.existsSync(standaloneServer)) return null;
+
+  try {
+    const isWin = process.platform === "win32";
+    const child = spawn(process.execPath || "node", [standaloneServer], {
+      cwd: path.dirname(standaloneServer),
+      detached: !isWin,
+      shell: false,
+      env: { ...process.env, PORT: String(INTERNAL_WEB_PORT), HOSTNAME: "0.0.0.0" },
+      stdio: ["ignore", "ignore", "inherit"],
+    });
+
+    child.on("error", (err) => {
+      console.error("[Next.js Worker Error]:", err.message);
+    });
+
+    if (child.unref && !isWin) {
+      child.unref();
+    }
+
+    return child;
+  } catch (err) {
+    console.error("[Next.js Worker Spawn Failed]:", err.message);
+    return null;
+  }
+}
+
 async function start() {
   try {
+    // 1. Supervise internal Next.js standalone worker
+    const isPortOpen = await waitForPort(INTERNAL_WEB_PORT, 300);
+    if (!isPortOpen) {
+      nextWorker = startNextWorker();
+      await waitForPort(INTERNAL_WEB_PORT, 6000);
+    }
+
+    // 2. Start Unified Fastify Gateway
     const server = await buildServer({ enableProxy: true });
     await server.listen({ port: PORT, host: HOST });
     console.log(`[TheGate Unified Gateway] Online & listening on http://${HOST}:${PORT}`);
@@ -98,6 +163,11 @@ async function start() {
 
     const shutdown = async () => {
       console.log("\n[TheGate Unified Gateway] Shutting down gracefully...");
+      if (nextWorker) {
+        try {
+          nextWorker.kill();
+        } catch {}
+      }
       await server.close();
       process.exit(0);
     };
@@ -106,6 +176,11 @@ async function start() {
     process.on("SIGTERM", shutdown);
   } catch (err) {
     console.error("[TheGate Unified Gateway Fatal Error]:", err);
+    if (nextWorker) {
+      try {
+        nextWorker.kill();
+      } catch {}
+    }
     process.exit(1);
   }
 }
