@@ -6,6 +6,9 @@
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
 const proxy = require("@fastify/http-proxy");
+const fastifyStatic = require("@fastify/static");
+const fs = require("fs");
+const path = require("path");
 const db = require("./db/index");
 const { seedDefaults } = require("./db/seed");
 
@@ -54,7 +57,26 @@ async function buildServer(options = {}) {
   await fastify.register(authRoutes);
   await fastify.register(eventsRoutes);
 
-  // 2. UNIFIED SINGLE PORT: Proxy frontend dashboard routes to Next.js internal server
+  // 2. High-Performance Static Asset Delivery (Zero-404 on _next/static & public assets)
+  const publicPath = path.join(__dirname, "..", "frontend", "public");
+  if (fs.existsSync(publicPath)) {
+    await fastify.register(fastifyStatic, {
+      root: publicPath,
+      prefix: "/",
+      wildcard: false,
+    });
+  }
+
+  const staticPath = path.join(__dirname, "..", "frontend", ".next", "static");
+  if (fs.existsSync(staticPath)) {
+    await fastify.register(fastifyStatic, {
+      root: staticPath,
+      prefix: "/_next/static/",
+      decorateReply: false,
+    });
+  }
+
+  // 3. UNIFIED SINGLE PORT: Proxy frontend dashboard routes to Next.js internal server
   if (options.enableProxy !== false) {
     await fastify.register(proxy, {
       upstream: `http://127.0.0.1:${INTERNAL_WEB_PORT}`,

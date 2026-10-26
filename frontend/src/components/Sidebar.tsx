@@ -69,7 +69,7 @@ export function Sidebar() {
           <Link href="/" onClick={closeMobileNav} className="flex items-center gap-3">
             <div className="relative flex h-14 w-14 shrink-0 items-center justify-center border-2 border-black bg-retro-night shadow-pixel-sm overflow-hidden">
               <img
-                src="/logo.png"
+                src="/thegate-metaicon.png"
                 alt="TheGate Meta Icon"
                 className="h-full w-full object-cover"
                 style={{ imageRendering: "pixelated" }}

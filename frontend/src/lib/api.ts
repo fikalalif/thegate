@@ -18,6 +18,15 @@ export interface AnalyticsOverview {
   net_savings_percent: string | null;
   avg_latency_ms: number;
   p95_latency_ms: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  cached_tokens?: number;
+  cache_hit_rate?: number;
+  cached_tokens_formatted?: string;
+  rps?: string;
+  rpm?: string;
+  error_rate?: string;
+  success_rate?: string;
 }
 
 export interface ModelAnalyticsItem {

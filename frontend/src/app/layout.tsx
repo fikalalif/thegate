@@ -13,12 +13,12 @@ export const metadata: Metadata = {
     "Enterprise-grade, open-source AI Operations Control Room and intelligent ingress gateway for production LLM workloads.",
   icons: {
     icon: [
-      { url: "/icon.png", sizes: "500x500", type: "image/png" },
+      { url: "/thegate-metaicon.png", sizes: "500x500", type: "image/png" },
       { url: "/favicon.ico" },
     ],
-    shortcut: ["/icon.png"],
+    shortcut: ["/thegate-metaicon.png"],
     apple: [
-      { url: "/apple-icon.png", sizes: "500x500", type: "image/png" },
+      { url: "/thegate-metaicon.png", sizes: "500x500", type: "image/png" },
     ],
   },
   openGraph: {
@@ -26,10 +26,10 @@ export const metadata: Metadata = {
     description: "Enterprise-grade, open-source AI Operations Control Room and intelligent ingress gateway for production LLM workloads.",
     images: [
       {
-        url: "/logo.png",
-        width: 1255,
-        height: 1255,
-        alt: "TheGate Official Logo",
+        url: "/thegate-metaicon.png",
+        width: 500,
+        height: 500,
+        alt: "TheGate Official Meta Icon",
       },
     ],
   },
@@ -43,8 +43,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/icon.png" type="image/png" sizes="500x500" />
-        <link rel="apple-touch-icon" href="/apple-icon.png" />
+        <link rel="icon" href="/thegate-metaicon.png" type="image/png" sizes="500x500" />
+        <link rel="apple-touch-icon" href="/thegate-metaicon.png" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
