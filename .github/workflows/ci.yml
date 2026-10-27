@@ -2,37 +2,30 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 jobs:
   test-backend:
-    name: Backend Tests (Pytest)
+    name: Backend Tests (Fastify Engine)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.11"
-          cache: "pip"
+          node-version: "20"
+          cache: "npm"
 
-      - name: Install Backend Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          pip install pytest pytest-asyncio aiosqlite httpx
+      - name: Install Dependencies
+        run: npm ci
 
-      - name: Run Pytest Suite
-        env:
-          THEGATE_ENV: testing
-          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
-        run: |
-          python -m pytest tests/ -v
+      - name: Run Fastify Test Suite
+        run: npm test
 
   check-frontend:
     name: Frontend Quality & Typecheck

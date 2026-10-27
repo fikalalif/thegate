@@ -38,6 +38,10 @@ import {
   Terminal,
   ShieldAlert,
   Flame,
+  Settings2,
+  Edit3,
+  Save,
+  Workflow,
 } from "lucide-react";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
@@ -48,6 +52,28 @@ import { useI18n, Language } from "@/lib/i18n";
 // =====================================================================
 // Types & Interfaces
 // =====================================================================
+
+export interface PipelineHUDStep {
+  title: string;
+  roleName: string;
+  status: "PENDING" | "IN_PROGRESS" | "DONE";
+  durationMs?: number;
+  tokens?: number;
+  outputPreview?: string;
+}
+
+export interface PipelineHUDState {
+  pipelineId: string;
+  title: string;
+  status: "PLANNING" | "RUNNING" | "PAUSED" | "COMPLETED" | "FAILED";
+  stepIndex: number;
+  totalSteps: number;
+  stepTitle?: string;
+  stepProgress?: string;
+  dialogue?: string;
+  activeRole?: string;
+  stepsHistory: PipelineHUDStep[];
+}
 
 export interface ModelWorkstationPC {
   id: string;
@@ -111,11 +137,11 @@ interface OfficeSimulationProps {
   onOpenRecommendQuest?: () => void;
 }
 
-// Isometric Projection Math Constants
-const TILE_W = 44;
-const TILE_H = 22;
-const TILE_HALF_W = 22;
-const TILE_HALF_H = 11;
+// Isometric Projection Math Constants (Expanded Scale for High-DPI Clarity & Breathing Room)
+const TILE_W = 50;
+const TILE_H = 25;
+const TILE_HALF_W = 25;
+const TILE_HALF_H = 12.5;
 
 // Grid Dimensions: 28 cols x 22 rows (Expanded with Urban Estate Grounds)
 const GRID_COLS = 28;
@@ -270,6 +296,302 @@ export const RELAXATION_SPOTS = [
   { gx: 11, gy: 7, state: "focus" as const, room: "focus-pods", activity: "Meditasi di Focus Pod" },
   { gx: 5, gy: 7.5, state: "meeting" as const, room: "boardroom", activity: "Diskusi di Boardroom" },
   { gx: 11.5, gy: 3, state: "idle" as const, room: "director-suite", activity: "Membaca di Director Suite" },
+];
+
+export interface InteractivePropAction {
+  label: string;
+  icon: string;
+  agentState: CampusAgent["state"];
+  activity: string;
+  thoughtEmoji: string;
+  dialogueText: string;
+}
+
+export interface InteractiveProp {
+  id: string;
+  name: string;
+  room: string;
+  gx: number;
+  gy: number;
+  radius: number;
+  icon: string;
+  description: string;
+  actions: InteractivePropAction[];
+}
+
+export const INTERACTIVE_PROPS: InteractiveProp[] = [
+  {
+    id: "prop-pool",
+    name: "Luxury Resort Pool",
+    room: "08: Outdoor Pool & Garden",
+    gx: 22,
+    gy: 18,
+    radius: 42,
+    icon: "🏊",
+    description: "Turquoise heated pool with floating duck, chrome entry ladder, and fresh water caustics.",
+    actions: [
+      {
+        label: "Berenang di Kolam",
+        icon: "🏊",
+        agentState: "swimming",
+        activity: "Berenang di Kolam Renang Depan",
+        thoughtEmoji: "🏊",
+        dialogueText: "Splashing into the crystal blue pool to recharge thermal capacity after intensive LLM inference runs!",
+      },
+      {
+        label: "Main dengan Bebek Pelampung",
+        icon: "🦆",
+        agentState: "swimming",
+        activity: "Main dengan Bebek Pelampung",
+        thoughtEmoji: "🦆",
+        dialogueText: "Floating alongside the iconic 16-bit yellow duck. Fun meter restored to 100%!",
+      },
+    ],
+  },
+  {
+    id: "prop-lounger",
+    name: "Poolside Sun Lounger & Parasol",
+    room: "08: Outdoor Pool & Garden",
+    gx: 17,
+    gy: 17.5,
+    radius: 30,
+    icon: "🏖️",
+    description: "Travertine pool deck equipped with striped beach towels, sun shades, and iced fruit drinks.",
+    actions: [
+      {
+        label: "Berjemur dengan Kacamata Hitam",
+        icon: "🕶️",
+        agentState: "sunbathing",
+        activity: "Berjemur di Kursi Tepi Kolam",
+        thoughtEmoji: "🏖️",
+        dialogueText: "Putting on shades and soaking in the sun while monitoring token burn rate in complete luxury.",
+      },
+      {
+        label: "Minum Jus Tropis Dingin",
+        icon: "🍹",
+        agentState: "sunbathing",
+        activity: "Minum Jus Tropis Dingin",
+        thoughtEmoji: "🍹",
+        dialogueText: "Chilling out with cold tropical juice under the striped umbrella.",
+      },
+    ],
+  },
+  {
+    id: "prop-garden",
+    name: "Botanical Garden & Park Bench",
+    room: "08: Outdoor Pool & Garden",
+    gx: 5,
+    gy: 18,
+    radius: 32,
+    icon: "🌸",
+    description: "Lush green grass courtyard with blooming flowers, tropical palm trees, and hand-carved teak bench.",
+    actions: [
+      {
+        label: "Duduk di Bangku Taman",
+        icon: "🌳",
+        agentState: "garden",
+        activity: "Duduk di Taman Bunga Depan",
+        thoughtEmoji: "🌸",
+        dialogueText: "Resting peacefully surrounded by tropical greenery and blooming flowers in the courtyard.",
+      },
+      {
+        label: "Baca Buku di Bawah Pohon",
+        icon: "📖",
+        agentState: "garden",
+        activity: "Membaca Buku di Bawah Pohon",
+        thoughtEmoji: "📖",
+        dialogueText: "Reading 'Designing High-Throughput Routing Gateways' under the shade of the monstera palm.",
+      },
+    ],
+  },
+  {
+    id: "prop-bbq",
+    name: "Charcoal Stone BBQ Grill",
+    room: "08: Outdoor Pool & Garden",
+    gx: 8,
+    gy: 16.5,
+    radius: 28,
+    icon: "🥩",
+    description: "Outdoor granite masonry barbecue station with live woodsmoke, grilling skewers, and burgers.",
+    actions: [
+      {
+        label: "Panggang Burger & Sosis",
+        icon: "🍔",
+        agentState: "garden",
+        activity: "Panggang Burger & Sosis",
+        thoughtEmoji: "🍔",
+        dialogueText: "Flipping gourmet burgers on the stone grill! Nothing beats the aroma of charcoal BBQ in the courtyard.",
+      },
+    ],
+  },
+  {
+    id: "prop-espresso",
+    name: "Barista Espresso Bar",
+    room: "07: Pantry & Bistro",
+    gx: 4,
+    gy: 10.5,
+    radius: 30,
+    icon: "☕",
+    description: "Commercial multi-group Italian espresso maker pulling dark roast crema into ceramic demitasse cups.",
+    actions: [
+      {
+        label: "Seduh Double Shot Espresso",
+        icon: "☕",
+        agentState: "cafe",
+        activity: "Ngopi di Bistro (Santai)",
+        thoughtEmoji: "☕",
+        dialogueText: "Pulling a rich double-shot espresso to supercharge cognitive throughput for the next prompt wave!",
+      },
+      {
+        label: "Ambil Croissant Hangat",
+        icon: "🥐",
+        agentState: "cafe",
+        activity: "Makan Croissant Hangat",
+        thoughtEmoji: "🥐",
+        dialogueText: "Enjoying a buttery bakery croissant at the black-and-white checkered bistro counter.",
+      },
+    ],
+  },
+  {
+    id: "prop-arcade",
+    name: "Retro 16-Bit Arcade Cabinet",
+    room: "08: Patio Arcade",
+    gx: 20,
+    gy: 11.5,
+    radius: 26,
+    icon: "🕹️",
+    description: "Classic CRT arcade cabinet running custom 16-bit retro games with illuminated joystick controls.",
+    actions: [
+      {
+        label: "Main Game Arcade Retro",
+        icon: "🎮",
+        agentState: "arcade",
+        activity: "Main Game Arcade Retro",
+        thoughtEmoji: "🕹️",
+        dialogueText: "Mashing arcade buttons and setting the all-time high score on TheGate 16b retro cabinet!",
+      },
+    ],
+  },
+  {
+    id: "prop-server",
+    name: "Ingress Router Server Vault",
+    room: "02: Server Vault",
+    gx: 4,
+    gy: 2.2,
+    radius: 34,
+    icon: "⚡",
+    description: "High-density server racks hosting encrypted 9Router proxy nodes, SSE streaming buffers, and LED arrays.",
+    actions: [
+      {
+        label: "Diagnostik Server 9Router",
+        icon: "⚡",
+        agentState: "using_pc",
+        activity: "Cek Status Server Vault 9Router",
+        thoughtEmoji: "⚡",
+        dialogueText: "Querying rack telemetry: 121 models active, 0.00% 5xx error budget, sub-millisecond edge latency confirmed!",
+      },
+    ],
+  },
+  {
+    id: "prop-director",
+    name: "Meja Direktur & Perpustakaan",
+    room: "03: Director Suite",
+    gx: 11.5,
+    gy: 3.2,
+    radius: 30,
+    icon: "📚",
+    description: "Executive desk with banker's lamp, dark walnut bookshelves, and signed autonomous AI governance charters.",
+    actions: [
+      {
+        label: "Baca Rencana Strategis AI",
+        icon: "📜",
+        agentState: "idle",
+        activity: "Membaca di Director Suite",
+        thoughtEmoji: "📜",
+        dialogueText: "Reviewing executive FinOps arbitration charters: -77.3% cost reduction verified across enterprise tenants.",
+      },
+    ],
+  },
+  {
+    id: "prop-warroom",
+    name: "AI Arbitrage War Room Table",
+    room: "05: Boardroom",
+    gx: 5,
+    gy: 7.5,
+    radius: 36,
+    icon: "🎯",
+    description: "Long conference table equipped with executive swivel chairs and projection displays for tactical routing.",
+    actions: [
+      {
+        label: "Kumpulkan Rapat Strategi",
+        icon: "📢",
+        agentState: "meeting",
+        activity: "Diskusi di Boardroom",
+        thoughtEmoji: "📢",
+        dialogueText: "Calling all agents to the boardroom table: reviewing speculative routing thresholds and fallback cascades!",
+      },
+    ],
+  },
+  {
+    id: "prop-pod",
+    name: "Soundproof Acoustic Focus Pod",
+    room: "06: Focus Pods",
+    gx: 11,
+    gy: 7,
+    radius: 26,
+    icon: "🎧",
+    description: "Isolated acoustic booth with active noise cancellation glass for deep uninterrupted architecture work.",
+    actions: [
+      {
+        label: "Masuk Mode Deep Focus",
+        icon: "🎧",
+        agentState: "focus",
+        activity: "Meditasi di Focus Pod",
+        thoughtEmoji: "🎧",
+        dialogueText: "Noise cancellation engaged. Zero distraction mode: analyzing complex AST token representations.",
+      },
+    ],
+  },
+  {
+    id: "prop-fireplace",
+    name: "Perapian & Ruang Tamu",
+    room: "01: Reception Lounge",
+    gx: 1.5,
+    gy: 16.5,
+    radius: 28,
+    icon: "🔥",
+    description: "Warm stone hearth with dancing wood embers, brick chimney, and deep leather lounge armchair.",
+    actions: [
+      {
+        label: "Hangatkan Diri di Perapian",
+        icon: "🔥",
+        agentState: "reception",
+        activity: "Santai di Sofa Ruang Tamu",
+        thoughtEmoji: "🔥",
+        dialogueText: "Relaxing on the leather armchair enjoying the crackling warmth of the brick fireplace.",
+      },
+    ],
+  },
+  {
+    id: "prop-gate",
+    name: "⛩️ Gerbang Utama TheGate",
+    room: "Front Yard Entrance",
+    gx: 13.5,
+    gy: 21.5,
+    radius: 34,
+    icon: "⛩️",
+    description: "Ornate ironwork security gate with brick pillars, stone walkway, and illuminated gold crest.",
+    actions: [
+      {
+        label: "Inspeksi Gerbang Keamanan",
+        icon: "🛡️",
+        agentState: "reception",
+        activity: "Cek Keamanan Gerbang Depan",
+        thoughtEmoji: "🛡️",
+        dialogueText: "Perimeter check: Wrought-iron fences locked, zero unauthenticated intrusion detected at the gate.",
+      },
+    ],
+  },
 ];
 
 export const DEFAULT_FALLBACK_AGENT: CampusAgent = {
@@ -445,15 +767,72 @@ export function OfficeSimulation({
   const [allowRoaming, setAllowRoaming] = useState<boolean>(true);
 
   // Selection & Telemetry State
-  const [selectedPcId, setSelectedPcId] = useState<string>("pc-0");
+  const [selectedPcId, setSelectedPcId] = useState<string | null>("pc-0");
   const [hoveredPcId, setHoveredPcId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>(DEFAULT_FALLBACK_AGENT.id);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
 
   // Real Ingress Telemetry & Live Traffic State
   const [liveTraffic, setLiveTraffic] = useState<LiveTrafficResponse | null>(null);
   const [lastHandledEventId, setLastHandledEventId] = useState<string | null>(null);
   const [isTestPromptSending, setIsTestPromptSending] = useState<boolean>(false);
   const [ingressToast, setIngressToast] = useState<string | null>(null);
+
+  // Multi-Agent Pipeline Orchestration State (PRD 5.3 & 5.4)
+  const [pipelineHud, setPipelineHud] = useState<PipelineHUDState | null>(null);
+  const [isDispatchingPipeline, setIsDispatchingPipeline] = useState<boolean>(false);
+  const [inspectingStepArtifact, setInspectingStepArtifact] = useState<{ title: string; role: string; content: string } | null>(null);
+
+  // User Custom Desk Assignments & Dynamic Hot-Swap State
+  const [customDesks, setCustomDesks] = useState<Record<string, { modelId: string }>>({});
+  const [hotSwappedDesks, setHotSwappedDesks] = useState<Record<string, { modelId: string; timestamp: number }>>({});
+  const [editingDeskModel, setEditingDeskModel] = useState<string>("");
+  const [isEditingDesk, setIsEditingDesk] = useState<boolean>(false);
+
+  // Load custom desks from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("thegate_custom_desks");
+      if (saved) {
+        setCustomDesks(JSON.parse(saved));
+      }
+    } catch {}
+  }, []);
+
+  const handleAssignModelToDesk = (deskId: string, newModelId: string) => {
+    const trimmed = newModelId.trim();
+    if (!trimmed) return;
+    setCustomDesks((prev) => {
+      const next = { ...prev, [deskId]: { modelId: trimmed } };
+      try {
+        localStorage.setItem("thegate_custom_desks", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    setHotSwappedDesks((prev) => {
+      const next = { ...prev };
+      delete next[deskId];
+      return next;
+    });
+    setIsEditingDesk(false);
+  };
+
+  const handleResetDesk = (deskId: string) => {
+    setCustomDesks((prev) => {
+      const next = { ...prev };
+      delete next[deskId];
+      try {
+        localStorage.setItem("thegate_custom_desks", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    setHotSwappedDesks((prev) => {
+      const next = { ...prev };
+      delete next[deskId];
+      return next;
+    });
+    setIsEditingDesk(false);
+  };
 
   // Live Database Roles (Strict 1-to-1 NPC Coupling)
   const [dbRoles, setDbRoles] = useState<RoleItem[]>([]);
@@ -479,22 +858,14 @@ export function OfficeSimulation({
 
   const hasRealModels = (models && models.length > 0) || (liveTraffic && liveTraffic.recent_requests.length > 0);
 
-  // Poll real-time live traffic every 1.8 seconds
+  // Initial traffic overview metrics fetch (PRD v2.0: Event-driven via SSE)
   useEffect(() => {
     let isMounted = true;
-    const fetchLiveTraffic = async () => {
-      try {
-        const data = await api.getLiveTraffic();
-        if (isMounted) {
-          setLiveTraffic(data);
-        }
-      } catch {}
-    };
-    fetchLiveTraffic();
-    const interval = setInterval(fetchLiveTraffic, 1800);
+    api.getLiveTraffic().then((data) => {
+      if (isMounted) setLiveTraffic(data);
+    }).catch(() => {});
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
   }, []);
 
@@ -531,7 +902,7 @@ export function OfficeSimulation({
   // -------------------------------------------------------------------
   // 1. Dynamic Workstation PCs Mapping (Diverse Multi-Provider Representation)
   // -------------------------------------------------------------------
-  const workstationPCs = useMemo<ModelWorkstationPC[]>(() => {
+  const baseWorkstationPCs = useMemo<ModelWorkstationPC[]>(() => {
     const cubicleSlots = [
       { gx: 18, gy: 2, label: "BAY 1 (ANTIGRAVITY)" },
       { gx: 21, gy: 2, label: "BAY 2 (KIRO AI)" },
@@ -568,7 +939,7 @@ export function OfficeSimulation({
           };
         }
         return {
-          id: `pc-standby-${idx}`,
+          id: `pc-${idx}`,
           modelId: "offline",
           internalName: `Workstation ${slot.label} (Standby)`,
           adapter: "none",
@@ -719,6 +1090,83 @@ export function OfficeSimulation({
     });
   }, [models, hasRealModels]);
 
+  // Combined Workstation PCs with Custom User Overrides & Dynamic Ingress Hot-Swaps
+  const workstationPCs = useMemo<ModelWorkstationPC[]>(() => {
+    const formatCustomPrice = (cat: string, type: "in" | "out") => {
+      if (cat === "reasoning") return type === "in" ? "$0.55" : "$2.19";
+      if (cat === "coding") return type === "in" ? "$0.30" : "$1.20";
+      if (cat === "speed") return type === "in" ? "$0.08" : "$0.30";
+      return type === "in" ? "$0.15" : "$0.60";
+    };
+
+    const getCategory = (name: string): ModelWorkstationPC["category"] => {
+      const lower = name.toLowerCase();
+      if (lower.includes("coder") || lower.includes("deepseek") || lower.includes("claude") || lower.includes("qwen")) return "coding";
+      if (lower.includes("o1") || lower.includes("glm") || lower.includes("gpt-4o") || lower.includes("thinking") || lower.includes("reasoning") || lower.includes("r1")) return "reasoning";
+      if (lower.includes("mini") || lower.includes("flash") || lower.includes("haiku") || lower.includes("fast")) return "speed";
+      return "flagship";
+    };
+
+    const getGlow = (cat: ModelWorkstationPC["category"]): string => {
+      switch (cat) {
+        case "coding":
+          return "#38BDF8";
+        case "reasoning":
+          return "#A855F7";
+        case "speed":
+          return "#34D399";
+        case "flagship":
+          return "#FB923C";
+        default:
+          return "#FFB71B";
+      }
+    };
+
+    return baseWorkstationPCs.map((pc) => {
+      // 1. Explicit Custom Assignment by User
+      if (customDesks[pc.id]) {
+        const customModel = customDesks[pc.id].modelId;
+        const cat = getCategory(customModel);
+        const shortName = customModel.includes("/") ? customModel.split("/").pop()! : customModel;
+        return {
+          ...pc,
+          modelId: customModel,
+          internalName: customModel,
+          category: cat,
+          status: "online" as const,
+          screenGlow: getGlow(cat),
+          deskLabel: `${pc.deskLabel.split(" ")[0]} (${shortName.slice(0, 10).toUpperCase()})`,
+          adapter: customModel.includes("/") ? customModel.split("/")[0] : "custom",
+          inputPrice: formatCustomPrice(cat, "in"),
+          outputPrice: formatCustomPrice(cat, "out"),
+          capabilities: ["Custom Assigned", "Active", "Dynamic Ingress"],
+        };
+      }
+
+      // 2. Dynamic Hot-Swap from Live Ingress Traffic
+      if (hotSwappedDesks[pc.id]) {
+        const hotModel = hotSwappedDesks[pc.id].modelId;
+        const cat = getCategory(hotModel);
+        const shortName = hotModel.includes("/") ? hotModel.split("/").pop()! : hotModel;
+        return {
+          ...pc,
+          modelId: hotModel,
+          internalName: hotModel,
+          category: cat,
+          status: "online" as const,
+          screenGlow: getGlow(cat),
+          deskLabel: `${pc.deskLabel.split(" ")[0]} (${shortName.slice(0, 10).toUpperCase()})`,
+          adapter: hotModel.includes("/") ? hotModel.split("/")[0] : "dynamic-router",
+          inputPrice: formatCustomPrice(cat, "in"),
+          outputPrice: formatCustomPrice(cat, "out"),
+          capabilities: ["Hot-Swapped", "Live Ingress", "Streaming"],
+        };
+      }
+
+      return pc;
+    });
+  }, [baseWorkstationPCs, customDesks, hotSwappedDesks]);
+
   const fallbackPc: ModelWorkstationPC = useMemo(
     () => ({
       id: "pc-0",
@@ -741,10 +1189,40 @@ export function OfficeSimulation({
     []
   );
 
-  const selectedPc: ModelWorkstationPC =
-    (workstationPCs && workstationPCs.length > 0
-      ? workstationPCs.find((w) => w.id === selectedPcId) || workstationPCs[0]
-      : fallbackPc) || fallbackPc;
+  const selectedPc: ModelWorkstationPC | null =
+    selectedObjectId
+      ? null
+      : ((workstationPCs && workstationPCs.length > 0
+          ? workstationPCs.find((w) => w.id === selectedPcId) || workstationPCs[0]
+          : fallbackPc) || fallbackPc);
+
+  const selectedProp = INTERACTIVE_PROPS.find((p) => p.id === selectedObjectId);
+
+  const handleTriggerPropAction = (prop: InteractiveProp, action: InteractivePropAction) => {
+    setAgents((prev) =>
+      prev.map((a) => {
+        if (a.id === selectedAgent.id) {
+          return {
+            ...a,
+            targetGx: prop.gx,
+            targetGy: prop.gy,
+            targetPcId: undefined,
+            state: action.agentState,
+            currentActivity: action.activity,
+            currentRoom: prop.room,
+            dialogue: {
+              agentId: a.id,
+              agentRole: a.role,
+              modelName: prop.name,
+              reasonText: action.dialogueText,
+              ticksRemaining: 110,
+            },
+          };
+        }
+        return a;
+      })
+    );
+  };
 
   // -------------------------------------------------------------------
   // 2. Autonomous Agents State (1-to-1 Coupling with Database Roles)
@@ -866,72 +1344,325 @@ export function OfficeSimulation({
     [language]
   );
 
-  // Dispatch real-time live traffic event to NPCs
-  useEffect(() => {
-    if (!liveTraffic || !liveTraffic.recent_requests.length || !agents.length) return;
-    const latest = liveTraffic.recent_requests[0];
-    if (latest.id === lastHandledEventId) return;
+  // Single Ingress Event Handler (PRD v2.0: Event-driven via SSE)
+  const handleLiveIngress = useCallback(
+    (latest: any) => {
+      if (!latest || !agents.length) return;
+      if (latest.id === lastHandledEventId) return;
 
-    setLastHandledEventId(latest.id);
+      setLastHandledEventId(latest.id);
 
-    // Alert toast
-    setIngressToast(
-      `⚡ LIVE INGRESS: ${latest.model} via ${latest.provider.toUpperCase()} (${latest.prompt_tokens} in / ${latest.completion_tokens} out)`
-    );
-    setTimeout(() => setIngressToast(null), 5000);
+      setIngressToast(
+        `⚡ LIVE INGRESS: ${latest.model} via ${(latest.provider || "9ROUTER").toUpperCase()} (${latest.prompt_tokens || 0} in / ${latest.completion_tokens || 0} out)`
+      );
+      setTimeout(() => setIngressToast(null), 5000);
 
-    // Find the workstation PC that hosts this model
-    let targetPc = workstationPCs.find(
-      (pc) =>
-        pc.modelId.toLowerCase() === latest.model.toLowerCase() ||
-        pc.internalName.toLowerCase() === latest.raw_model.toLowerCase() ||
-        (latest.provider === "antigravity" && pc.id === "pc-0")
-    );
-    if (!targetPc) {
-      targetPc = workstationPCs[0];
-    }
+      // Find the workstation PC that hosts this model
+      let targetPc = workstationPCs.find(
+        (pc) =>
+          pc.modelId.toLowerCase() === (latest.model || "").toLowerCase() ||
+          pc.internalName.toLowerCase() === (latest.raw_model || "").toLowerCase() ||
+          (latest.provider === "antigravity" && pc.id === "pc-0")
+      );
 
-    // Pick agent whose preferredModelId matches or who is currently relaxing/idle
-    let chosenAgent = agents.find(
-      (a) => a.preferredModelId && a.preferredModelId.toLowerCase().includes(latest.model.toLowerCase())
-    );
-    if (!chosenAgent) {
-      chosenAgent = agents.find((a) => a.state !== "walking" && a.state !== "using_pc") || agents[0];
-    }
+      // Dynamic Desk Hot-Swap
+      if (!targetPc) {
+        const busyPcIds = new Set(agents.filter((a) => a.state === "using_pc").map((a) => a.targetPcId));
+        const candidateDesks = workstationPCs.slice(1).filter((pc) => !busyPcIds.has(pc.id) && !customDesks[pc.id]);
+        const swapVictim = candidateDesks[0] || workstationPCs[1] || workstationPCs[0];
 
-    if (!chosenAgent) return;
-
-    const targetPcRef = targetPc;
-    const targetAgentId = chosenAgent.id;
-
-    setSelectedAgentId(targetAgentId);
-    setSelectedPcId(targetPcRef.id);
-
-    setAgents((prev) =>
-      prev.map((a) => {
-        if (a.id === targetAgentId) {
-          const rationale = generateRationale(a, targetPcRef, latest, language);
-          return {
-            ...a,
-            targetGx: targetPcRef.gx,
-            targetGy: targetPcRef.gy + 1,
-            targetPcId: targetPcRef.id,
-            state: "walking",
-            stateTicks: 0,
-            currentActivity: language === "en" ? `Processing request on ${targetPcRef.internalName}` : `Memproses request di ${targetPcRef.internalName}`,
-            dialogue: {
-              agentId: a.id,
-              agentRole: a.role,
-              modelName: targetPcRef.internalName,
-              reasonText: rationale,
-              ticksRemaining: 95,
-            },
+        if (swapVictim) {
+          setHotSwappedDesks((prev) => ({
+            ...prev,
+            [swapVictim.id]: { modelId: latest.model, timestamp: Date.now() },
+          }));
+          targetPc = {
+            ...swapVictim,
+            modelId: latest.model,
+            internalName: latest.model,
           };
+        } else {
+          targetPc = workstationPCs[0];
         }
-        return a;
-      })
-    );
-  }, [liveTraffic, lastHandledEventId, agents, workstationPCs, generateRationale, language]);
+      }
+
+      let chosenAgent = agents.find(
+        (a) => a.preferredModelId && a.preferredModelId.toLowerCase().includes((latest.model || "").toLowerCase())
+      );
+      if (!chosenAgent) {
+        chosenAgent = agents.find((a) => a.state !== "walking" && a.state !== "using_pc") || agents[0];
+      }
+
+      if (!chosenAgent) return;
+
+      const targetPcRef = targetPc;
+      const targetAgentId = chosenAgent.id;
+
+      setSelectedAgentId(targetAgentId);
+      setSelectedPcId(targetPcRef.id);
+
+      setAgents((prev) =>
+        prev.map((a) => {
+          if (a.id === targetAgentId) {
+            const rationale = generateRationale(a, targetPcRef, latest, language);
+            return {
+              ...a,
+              targetGx: targetPcRef.gx,
+              targetGy: targetPcRef.gy + 1,
+              targetPcId: targetPcRef.id,
+              state: "walking",
+              stateTicks: 0,
+              currentActivity: language === "en" ? `Processing request on ${targetPcRef.internalName}` : `Memproses request di ${targetPcRef.internalName}`,
+              dialogue: {
+                agentId: a.id,
+                agentRole: a.role,
+                modelName: targetPcRef.internalName,
+                reasonText: rationale,
+                ticksRemaining: 120,
+              },
+            };
+          }
+          return a;
+        })
+      );
+    },
+    [agents, workstationPCs, customDesks, lastHandledEventId, generateRationale, language]
+  );
+
+  // Multi-Agent Pipeline Telemetry Handler (PRD 5.2 & 5.3)
+  const handleAgentCoordination = useCallback(
+    (data: any) => {
+      if (!data) return;
+
+      if (data.type === "PIPELINE_INIT") {
+        setPipelineHud({
+          pipelineId: data.pipelineId,
+          title: data.title || "Multi-Agent Pipeline",
+          status: "RUNNING",
+          stepIndex: 0,
+          totalSteps: data.totalSteps || 3,
+          stepTitle: "Memulai DAG Pipeline...",
+          stepProgress: data.stepProgress || `0/${data.totalSteps || 3}`,
+          dialogue: data.dialogue,
+          stepsHistory: Array.from({ length: data.totalSteps || 3 }).map((_, idx) => ({
+            title: `Step ${idx + 1}`,
+            roleName: idx === 0 ? "Systems Architect" : (idx === 1 ? "Academic Specialist" : "Security Auditor"),
+            status: idx === 0 ? "IN_PROGRESS" : "PENDING",
+          })),
+        });
+
+        setIngressToast(`⚡ ${data.dialogue}`);
+        setTimeout(() => setIngressToast(null), 5000);
+      }
+
+      if (data.type === "HANDOFF_TRANSFER") {
+        const fromRole = data.fromAgent?.roleId || "";
+        const toRole = data.toAgent?.roleId || "";
+        const toCoord = data.toAgent?.deskCoord || [18, 2];
+
+        setPipelineHud((prev) => {
+          if (!prev) return prev;
+          const updatedSteps = [...prev.stepsHistory];
+          if (updatedSteps[data.stepIndex]) {
+            updatedSteps[data.stepIndex] = {
+              ...updatedSteps[data.stepIndex],
+              title: data.stepTitle || updatedSteps[data.stepIndex].title,
+              roleName: data.toAgent?.roleName || updatedSteps[data.stepIndex].roleName,
+              status: "IN_PROGRESS",
+            };
+          }
+          return {
+            ...prev,
+            stepIndex: data.stepIndex || 0,
+            stepTitle: data.stepTitle || prev.stepTitle,
+            stepProgress: data.stepProgress || prev.stepProgress,
+            dialogue: data.dialogue,
+            activeRole: data.toAgent?.roleName,
+            stepsHistory: updatedSteps,
+          };
+        });
+
+        setIngressToast(`🤝 HANDOFF: ${data.fromAgent?.roleName || "Lead"} ➔ ${data.toAgent?.roleName || "Specialist"}`);
+        setTimeout(() => setIngressToast(null), 6000);
+
+        setAgents((prevAgents) => {
+          const sender = prevAgents.find((a) => a.role === data.fromAgent?.roleName || a.id.includes(fromRole));
+          const receiver = prevAgents.find((a) => a.role === data.toAgent?.roleName || a.id.includes(toRole)) || prevAgents[0];
+
+          return prevAgents.map((a) => {
+            if (sender && a.id === sender.id) {
+              return {
+                ...a,
+                targetGx: toCoord[0] - 1,
+                targetGy: toCoord[1] + 1,
+                state: "walking" as const,
+                stateTicks: 0,
+                currentActivity: `Handoff ke ${data.toAgent?.roleName}`,
+                dialogue: {
+                  agentId: a.id,
+                  agentRole: a.role,
+                  modelName: "Handoff Packet",
+                  reasonText: data.dialogue,
+                  ticksRemaining: 140,
+                },
+              };
+            }
+            if (receiver && a.id === receiver.id) {
+              return {
+                ...a,
+                targetGx: toCoord[0],
+                targetGy: toCoord[1] + 1,
+                state: "walking" as const,
+                stateTicks: 0,
+                currentActivity: `Menerima tugas: ${data.stepTitle}`,
+              };
+            }
+            return a;
+          });
+        });
+      }
+
+      if (data.type === "COMPUTING") {
+        const targetDeskCoord = data.agent?.deskCoord || [18, 2];
+        const targetRoleName = data.agent?.roleName;
+
+        const matchingPc = workstationPCs.find(
+          (pc) => Math.hypot(pc.gx - targetDeskCoord[0], pc.gy - targetDeskCoord[1]) < 2.5
+        ) || workstationPCs[0];
+
+        if (matchingPc) {
+          setSelectedPcId(matchingPc.id);
+        }
+
+        setAgents((prevAgents) => {
+          const targetAgent = prevAgents.find((a) => a.role === targetRoleName) || prevAgents[0];
+          if (!targetAgent) return prevAgents;
+          setSelectedAgentId(targetAgent.id);
+
+          return prevAgents.map((a) => {
+            if (a.id === targetAgent.id) {
+              return {
+                ...a,
+                gx: targetDeskCoord[0],
+                gy: targetDeskCoord[1] + 1,
+                targetGx: targetDeskCoord[0],
+                targetGy: targetDeskCoord[1] + 1,
+                targetPcId: matchingPc ? matchingPc.id : undefined,
+                state: "using_pc" as const,
+                stateTicks: 0,
+                currentRoom: "workstations",
+                currentActivity: `Memproses ${data.stepTitle || "Step"} via ${data.model}`,
+                dialogue: {
+                  agentId: a.id,
+                  agentRole: a.role,
+                  modelName: data.model || matchingPc.internalName,
+                  reasonText: data.dialogue || `Mengeksekusi inferensi pada ${data.model}...`,
+                  ticksRemaining: 180,
+                },
+              };
+            }
+            return a;
+          });
+        });
+      }
+
+      if (data.type === "STEP_COMPLETED") {
+        setPipelineHud((prev) => {
+          if (!prev) return prev;
+          const updatedSteps = [...prev.stepsHistory];
+          if (updatedSteps[data.stepIndex]) {
+            updatedSteps[data.stepIndex] = {
+              ...updatedSteps[data.stepIndex],
+              status: "DONE",
+              durationMs: data.durationMs,
+              tokens: data.tokens,
+              outputPreview: data.outputPreview,
+            };
+          }
+          return {
+            ...prev,
+            stepsHistory: updatedSteps,
+          };
+        });
+
+        setIngressToast(`✓ Step ${data.stepIndex + 1} Selesai (${data.durationMs}ms, ${data.tokens} tok)`);
+        setTimeout(() => setIngressToast(null), 4000);
+      }
+
+      if (data.type === "PIPELINE_COMPLETED") {
+        setPipelineHud((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            status: "COMPLETED",
+            dialogue: data.dialogue,
+            stepsHistory: prev.stepsHistory.map((s) => ({ ...s, status: "DONE" })),
+          };
+        });
+
+        setIngressToast(`🎉 ${data.dialogue || "DAG PIPELINE BERHASIL 100%!"}`);
+        setTimeout(() => setIngressToast(null), 8000);
+      }
+    },
+    [workstationPCs]
+  );
+
+  // Connect Real-Time SSE Stream (PRD 5.2)
+  useEffect(() => {
+    let es: EventSource | null = null;
+    let reconnectTimer: any = null;
+
+    const connect = () => {
+      try {
+        es = new EventSource("/api/v1/events/stream");
+
+        es.addEventListener("AGENT_COORDINATION", (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            handleAgentCoordination(data);
+          } catch {}
+        });
+
+        es.addEventListener("REQUEST_DISPATCH", (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            handleLiveIngress(data);
+          } catch {}
+        });
+
+        es.onerror = () => {
+          if (es) es.close();
+          reconnectTimer = setTimeout(connect, 3000);
+        };
+      } catch {
+        reconnectTimer = setTimeout(connect, 3000);
+      }
+    };
+
+    connect();
+
+    return () => {
+      if (es) es.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+    };
+  }, [handleAgentCoordination, handleLiveIngress]);
+
+  // Dispatch Multi-Agent Pipeline Task to Fastify Core Runner
+  const handleDispatchPipeline = async () => {
+    setIsDispatchingPipeline(true);
+    setIngressToast(language === "en" ? "⚡ Initializing Multi-Agent Pipeline..." : "⚡ Menginisiasi Pipeline Multi-Agen...");
+    try {
+      await api.dispatchPipeline({
+        goal: "Rancang arsitektur sistem terdistribusi, pemodelan 4 UML, dan spesifikasi teknis.",
+        title: "Orkestrasi Arsitektur & Spesifikasi Sistem",
+      });
+    } catch (err: any) {
+      setIngressToast(`❌ Dispatch Error: ${err.message}`);
+      setTimeout(() => setIngressToast(null), 5000);
+    } finally {
+      setIsDispatchingPipeline(false);
+    }
+  };
 
   // Handler for manual Test Ingress to Antigravity
   const handleSendTestToAntigravity = async () => {
@@ -1070,7 +1801,7 @@ export function OfficeSimulation({
           // Case B: USING WORKSTATION PC
           if (agent.state === "using_pc") {
             const ticks = agent.stateTicks + 1;
-            if (ticks > 80) {
+            if (ticks > 140) {
               const nextDest = RELAXATION_SPOTS[Math.floor(Math.random() * RELAXATION_SPOTS.length)];
 
               return {
@@ -1095,13 +1826,36 @@ export function OfficeSimulation({
             return { ...agent, stateTicks: ticks, dialogue: currentDialogue };
           }
 
-          // Case C: IDLE IN ROOM (SANTAI)
+          // Case C: IDLE IN ROOM (SANTAI / ROUTINE WORK)
           const newTicks = agent.stateTicks + 1;
           const maxStay = 130 + ((agent.name.charCodeAt(0) || 10) % 50);
 
           if (newTicks > maxStay) {
-            // Roam between RELAXATION spots when idle.
-            // NEVER jump to workstation PCs unless real ingress arrives!
+            // During Day Shift: 35% chance to do routine engineering / audit work at workstation PC
+            const shouldWorkRoutine = Math.random() < 0.35 && workstationPCs.length > 0;
+            if (shouldWorkRoutine) {
+              const myPreferredPc = workstationPCs.find(
+                (pc) => agent.preferredModelId && agent.preferredModelId.toLowerCase().includes(pc.modelId.toLowerCase())
+              ) || workstationPCs[Math.floor(Math.random() * workstationPCs.length)];
+
+              if (myPreferredPc && myPreferredPc.status === "online") {
+                const routineActivity = language === "en"
+                  ? `Routine checks & maintenance on ${myPreferredPc.internalName}`
+                  : `Pemeriksaan rutin & coding di ${myPreferredPc.internalName}`;
+                return {
+                  ...agent,
+                  targetGx: myPreferredPc.gx,
+                  targetGy: myPreferredPc.gy + 1,
+                  targetPcId: myPreferredPc.id,
+                  state: "walking",
+                  stateTicks: 0,
+                  currentActivity: routineActivity,
+                  dialogue: undefined,
+                };
+              }
+            }
+
+            // Otherwise roam to relaxation spots
             const spots = RELAXATION_SPOTS.filter(
               (s) => Math.hypot(s.gx - agent.gx, s.gy - agent.gy) > 2
             );
@@ -1995,16 +2749,58 @@ export function OfficeSimulation({
       ctx.strokeStyle = pc.screenGlow;
       ctx.lineWidth = 1.5;
 
-      let displayTag = pc.internalName;
-      if (pc.internalName.includes("/")) {
-        const [prov, mName] = pc.internalName.split("/");
-        displayTag = `[${prov.toUpperCase()}] ${mName.length > 10 ? mName.slice(0, 9) + "…" : mName}`;
-      } else if (displayTag.length > 15) {
-        displayTag = displayTag.slice(0, 14) + "…";
-      }
+      const formatModelTag = (name: string) => {
+        if (!name || name.includes("Standby")) return "STANDBY";
+        let prov = "";
+        let model = name;
+        if (name.includes("/")) {
+          const parts = name.split("/");
+          prov = parts[0].toUpperCase();
+          model = parts.slice(1).join("/");
+        }
+        const provMap: Record<string, string> = {
+          NVIDIA: "NV",
+          OPENROUTER: "OR",
+          CLOUDFLARE: "CF",
+          DEEPSEEK: "DS",
+          ANTIGRAVITY: "AG",
+          GEMINI: "GEM",
+          GROQ: "GROQ",
+          KIRO: "KR",
+          MIMO: "MIMO",
+        };
+        const pTag = provMap[prov] || prov;
 
-      ctx.strokeRect(pt.x - 38, monY - 14, 76, 12);
-      ctx.fillRect(pt.x - 38, monY - 14, 76, 12);
+        let clean = model
+          .replace(/^@cf\/meta\//i, "")
+          .replace(/^minimaxai\//i, "")
+          .replace(/^meta-llama\//i, "")
+          .replace(/-instruct$/i, "")
+          .replace(/-versatile$/i, "")
+          .replace(/^gemini-/i, "")
+          .replace(/^claude-/i, "")
+          .replace(/-thinking$/i, "");
+
+        if (clean.toLowerCase().includes("flash-high")) clean = "Flash-High";
+        else if (clean.toLowerCase().includes("sonnet")) clean = "Sonnet 4.6";
+        else if (clean.toLowerCase().includes("opus")) clean = "Opus 5.5";
+        else if (clean.toLowerCase().includes("deepseek-v4")) clean = "DS-v4 Pro";
+        else if (clean.toLowerCase().includes("llama-3.3")) clean = "LLaMA 3.3";
+        else if (clean.toLowerCase().includes("llama-3.2")) clean = "LLaMA 3.2";
+        else if (clean.toLowerCase().includes("minimax")) clean = "MiniMax 2.7";
+        else if (clean.toLowerCase().includes("glm-5.3")) clean = "GLM 5.3";
+        else if (clean.toLowerCase().includes("mimo-v2.6")) clean = "MiMo Pro";
+        else if (clean.toLowerCase().includes("auto")) clean = "Auto Route";
+
+        if (clean.length > 10) clean = clean.slice(0, 9) + "…";
+        return pTag ? `[${pTag}] ${clean}` : clean;
+      };
+
+      const displayTag = formatModelTag(pc.internalName);
+      const tagW = Math.max(78, displayTag.length * 6 + 10);
+
+      ctx.strokeRect(pt.x - tagW / 2, monY - 14, tagW, 13);
+      ctx.fillRect(pt.x - tagW / 2, monY - 14, tagW, 13);
 
       ctx.fillStyle = isDark ? pc.screenGlow : "#0F172A";
       ctx.font = "bold 7px 'Silkscreen', monospace";
@@ -2032,18 +2828,52 @@ export function OfficeSimulation({
       ctx.ellipse(pt.x, pt.y + 11, 9, 4.5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      const bob = agent.state === "walking" ? (agent.walkFrame % 2 === 0 ? -2 : 0) : 0;
+      const isWalking = agent.state === "walking";
+      const isTyping = agent.state === "using_pc";
+      const stride = isWalking ? Math.sin((agent.walkFrame || 0) * (Math.PI / 2)) * 3 : 0;
+      const bob = isWalking ? (agent.walkFrame % 2 === 0 ? -2 : 0) : 0;
       const cy = pt.y - 12 + bob;
 
+      // Legs / Seated pose
       ctx.fillStyle = isDark ? "#0F172A" : "#334155";
-      ctx.fillRect(pt.x - 4, cy + 12, 3, 6);
-      ctx.fillRect(pt.x + 1, cy + 12, 3, 6);
+      if (isTyping) {
+        // Seated knees bent towards desk
+        ctx.fillRect(pt.x - 5, cy + 10, 10, 5);
+      } else {
+        // Walking stride
+        ctx.fillRect(pt.x - 4, cy + 12 - stride, 3, 6 + stride);
+        ctx.fillRect(pt.x + 1, cy + 12 + stride, 3, 6 - stride);
+      }
 
       ctx.fillStyle = agent.shirtColor;
       ctx.fillRect(pt.x - 6, cy + 4, 12, 9);
       ctx.strokeStyle = isDark ? "#0F172A" : "#1E293B";
       ctx.lineWidth = 1;
       ctx.strokeRect(pt.x - 6, cy + 4, 12, 9);
+
+      // Arms (with walking swing or laptop typing)
+      if (isTyping) {
+        const tapL = Math.sin(animationTick * 0.7) * 2;
+        const tapR = Math.cos(animationTick * 0.7) * 2;
+        ctx.fillStyle = agent.shirtColor;
+        ctx.fillRect(pt.x - 8, cy + 5, 3, 4);
+        ctx.fillRect(pt.x + 5, cy + 5, 3, 4);
+        ctx.fillStyle = "#F6D5B8";
+        ctx.fillRect(pt.x - 6, cy + 8 + tapL, 4, 3);
+        ctx.fillRect(pt.x + 2, cy + 8 + tapR, 4, 3);
+
+        // Neon Matrix Code Sparks rising from laptop
+        const sparkShift = (animationTick * 2 + agent.gx * 4) % 18;
+        const sparkAlpha = Math.max(0, 1 - (sparkShift / 18));
+        ctx.fillStyle = `rgba(52, 211, 153, ${sparkAlpha})`;
+        ctx.font = "bold 8px monospace";
+        ctx.fillText(animationTick % 4 === 0 ? "<>" : (animationTick % 4 === 1 ? "01" : "λ"), pt.x + (animationTick % 3 - 1) * 6, cy - 2 - sparkShift);
+      } else if (isWalking) {
+        const armSwing = Math.sin((agent.walkFrame || 0) * (Math.PI / 2)) * 2;
+        ctx.fillStyle = agent.shirtColor;
+        ctx.fillRect(pt.x - 8, cy + 5 - armSwing, 3, 6);
+        ctx.fillRect(pt.x + 5, cy + 5 + armSwing, 3, 6);
+      }
 
       if (agent.tieColor) {
         ctx.fillStyle = agent.tieColor;
@@ -2078,6 +2908,47 @@ export function OfficeSimulation({
       }
 
       // -------------------------------------------------------------
+      // Crisp Role Label Badge Floating Over Every NPC
+      // -------------------------------------------------------------
+      const ROLE_BADGES: Record<string, { short: string; color: string; border: string }> = {
+        "Lead Fullstack Engineer": { short: "ARCHITECT", color: "#38BDF8", border: "#0284C7" },
+        "Security Auditor & Systems Architect": { short: "SEC AUDITOR", color: "#F43F5E", border: "#E11D48" },
+        "Data Intelligence Analyst": { short: "DATA INTEL", color: "#34D399", border: "#059669" },
+        "Creative Copywriter & Brand Strategist": { short: "COPYWRITER", color: "#C084FC", border: "#9333EA" },
+        "Operations Assistant": { short: "OPERATIONS", color: "#FBBF24", border: "#D97706" },
+      };
+
+      const getRoleShort = (roleStr: string) => {
+        if (ROLE_BADGES[roleStr]) return ROLE_BADGES[roleStr];
+        const lower = (roleStr || "").toLowerCase();
+        if (lower.includes("architect") || lower.includes("fullstack")) return { short: "ARCHITECT", color: "#38BDF8", border: "#0284C7" };
+        if (lower.includes("security") || lower.includes("auditor")) return { short: "SEC AUDITOR", color: "#F43F5E", border: "#E11D48" };
+        if (lower.includes("data") || lower.includes("analyst")) return { short: "DATA INTEL", color: "#34D399", border: "#059669" };
+        if (lower.includes("copy") || lower.includes("brand")) return { short: "COPYWRITER", color: "#C084FC", border: "#9333EA" };
+        if (lower.includes("assistant") || lower.includes("operations")) return { short: "OPERATIONS", color: "#FBBF24", border: "#D97706" };
+        return { short: (roleStr || "AI AGENT").slice(0, 9).toUpperCase(), color: "#FFB71B", border: "#B45309" };
+      };
+
+      const badgeInfo = getRoleShort(agent.role);
+      const badgeW = Math.max(54, badgeInfo.short.length * 6 + 10);
+      const badgeH = 11;
+      const badgeX = pt.x - badgeW / 2;
+      const badgeY = cy - 23;
+
+      ctx.save();
+      ctx.fillStyle = isDark ? "rgba(15, 23, 42, 0.95)" : "rgba(255, 255, 255, 0.98)";
+      ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+      ctx.strokeStyle = isSelected ? "#FFB71B" : (agent.state === "using_pc" ? "#34D399" : badgeInfo.border);
+      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
+
+      ctx.fillStyle = isSelected ? "#FFB71B" : badgeInfo.color;
+      ctx.font = "bold 7px 'Silkscreen', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(badgeInfo.short, pt.x, badgeY + 8);
+      ctx.restore();
+
+      // -------------------------------------------------------------
       // The Sims Iconic Green Plumbob (Rotating / Bobbing 3D Diamond)
       // -------------------------------------------------------------
       const isSpeaking = Boolean(activeSpeaker && activeSpeaker.id === agent.id);
@@ -2085,7 +2956,7 @@ export function OfficeSimulation({
 
       if (isSelected || isSpeaking || isWorking) {
         const pbBob = Math.sin((animationTick * 0.22) + (agent.gx * 0.5)) * 3;
-        const pbY = cy - 22 + pbBob;
+        const pbY = cy - 35 + pbBob;
         const pbW = 4.5;
         const pbH = 8;
 
@@ -2167,6 +3038,37 @@ export function OfficeSimulation({
     sortedAgents.forEach((agent) => {
       drawAgent(agent);
     });
+
+    // -----------------------------------------------------------------
+    // Interactive Prop Selection Indicator & Glowing Ring
+    // -----------------------------------------------------------------
+    if (selectedObjectId) {
+      const activeProp = INTERACTIVE_PROPS.find((p) => p.id === selectedObjectId);
+      if (activeProp) {
+        const pPt = toIso(activeProp.gx, activeProp.gy, originX, originY);
+        const pulse = Math.sin(animationTick * 0.18) * 4;
+        ctx.save();
+        ctx.strokeStyle = "#FFB71B";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.ellipse(pPt.x, pPt.y, (activeProp.radius || 30) + pulse, ((activeProp.radius || 30) / 2) + pulse * 0.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Floating retro pill label
+        ctx.fillStyle = isDark ? "#0F172A" : "#FFFFFF";
+        ctx.fillRect(pPt.x - 52, pPt.y - 42, 104, 15);
+        ctx.strokeStyle = "#FFB71B";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(pPt.x - 52, pPt.y - 42, 104, 15);
+        ctx.fillStyle = "#FFB71B";
+        ctx.font = "bold 7px 'Silkscreen', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`✨ ${activeProp.icon} ${activeProp.name.slice(0, 16)}`, pPt.x, pPt.y - 32);
+        ctx.restore();
+      }
+    }
 
     // -----------------------------------------------------------------
     // I. Render ONLY the Top Active Speech Bubble (Prevents Screen Clutter)
@@ -2329,10 +3231,21 @@ export function OfficeSimulation({
       const originX = W / 2 + 10;
       const originY = 85;
 
+      // 1. Check Interactive Props Touch
+      for (const prop of INTERACTIVE_PROPS) {
+        const pt = toIso(prop.gx, prop.gy, originX, originY);
+        if (Math.hypot(clickX - pt.x, clickY - pt.y) < (prop.radius || 32)) {
+          setSelectedObjectId(prop.id);
+          setSelectedPcId(null);
+          return;
+        }
+      }
+
       workstationPCs.forEach((ws) => {
         const pt = toIso(ws.gx, ws.gy, originX, originY);
         if (Math.hypot(clickX - pt.x, clickY - pt.y) < 32) {
           setSelectedPcId(ws.id);
+          setSelectedObjectId(null);
           if (onSelectModel && ws.modelId !== "offline") {
             onSelectModel(ws.modelId);
           }
@@ -2359,19 +3272,35 @@ export function OfficeSimulation({
     const originX = W / 2 + 10;
     const originY = 85;
 
+    // 1. Check Interactive Props Click
+    for (const prop of INTERACTIVE_PROPS) {
+      const pt = toIso(prop.gx, prop.gy, originX, originY);
+      if (Math.hypot(clickX - pt.x, clickY - pt.y) < (prop.radius || 30)) {
+        setSelectedObjectId(prop.id);
+        setSelectedPcId(null);
+        return;
+      }
+    }
+
+    // 2. Check Workstations
+    let clickedPc = false;
     workstationPCs.forEach((ws) => {
       const pt = toIso(ws.gx, ws.gy, originX, originY);
-      if (Math.hypot(clickX - pt.x, clickY - pt.y) < 28) {
+      if (Math.hypot(clickX - pt.x, clickY - pt.y) < 32) {
         setSelectedPcId(ws.id);
+        setSelectedObjectId(null);
+        clickedPc = true;
         if (onSelectModel && ws.modelId !== "offline") {
           onSelectModel(ws.modelId);
         }
       }
     });
+    if (clickedPc) return;
 
+    // 3. Check Agents
     agents.forEach((ag) => {
       const pt = toIso(ag.gx, ag.gy, originX, originY);
-      if (Math.hypot(clickX - pt.x, clickY - pt.y) < 24) {
+      if (Math.hypot(clickX - pt.x, clickY - (pt.y - 12)) < 28) {
         setSelectedAgentId(ag.id);
       }
     });
@@ -2540,6 +3469,20 @@ export function OfficeSimulation({
 
         <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap max-w-full pb-1 no-scrollbar pt-2 border-t border-retro-ink/50">
           <button
+            onClick={handleDispatchPipeline}
+            disabled={isDispatchingPipeline}
+            className={`shrink-0 flex items-center gap-1.5 border-2 border-black px-2.5 py-1 font-pixel text-xs shadow-pixel-sm transition-none cursor-pointer ${
+              isDispatchingPipeline
+                ? "bg-purple-400 text-black animate-pulse cursor-wait"
+                : "bg-purple-600 hover:bg-purple-500 text-white font-bold"
+            }`}
+            title="Dispatch Real Multi-Agent DAG Pipeline (Distributed Systems & Architecture Task)"
+          >
+            <Workflow className={`h-3.5 w-3.5 ${isDispatchingPipeline ? "animate-spin" : ""}`} />
+            <span>{isDispatchingPipeline ? "DISPATCHING..." : "⚡ RUN MULTI-AGENT PIPELINE"}</span>
+          </button>
+
+          <button
             onClick={handleSendTestToAntigravity}
             disabled={isTestPromptSending}
             className={`shrink-0 flex items-center gap-1.5 border-2 border-black px-2.5 py-1 font-pixel text-xs shadow-pixel-sm transition-none cursor-pointer ${
@@ -2590,6 +3533,102 @@ export function OfficeSimulation({
           </button>
         </div>
       </div>
+
+      {/* Active Multi-Agent Pipeline Monitor HUD (PRD 5.4) */}
+      {pipelineHud && (
+        <div className="border-2 border-black bg-retro-night p-3 shadow-pixel-md">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-retro-ink/60 pb-2">
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 font-pixel text-[10px] font-bold border ${
+                  pipelineHud.status === "COMPLETED"
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500"
+                    : "bg-retro-amber/20 text-retro-amber border-retro-amber animate-pulse"
+                }`}
+              >
+                {pipelineHud.status === "COMPLETED" ? "✓ 100% COMPLETE" : "⚡ ACTIVE PIPELINE"}
+              </span>
+              <span className="font-pixel text-xs font-bold text-retro-cream">
+                {pipelineHud.title}
+              </span>
+              <span className="font-mono text-xs text-retro-sand">
+                [{pipelineHud.stepProgress}]
+              </span>
+            </div>
+            {pipelineHud.dialogue && (
+              <div className="max-w-md truncate font-mono text-xs text-retro-cream italic">
+                💬 {pipelineHud.dialogue}
+              </div>
+            )}
+          </div>
+
+          {/* Step Nodes Flow */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 overflow-x-auto no-scrollbar">
+            {pipelineHud.stepsHistory.map((step, idx) => {
+              const isActive = pipelineHud.status !== "COMPLETED" && pipelineHud.stepIndex === idx;
+              const isDone = step.status === "DONE" || pipelineHud.status === "COMPLETED";
+              return (
+                <React.Fragment key={idx}>
+                  <div
+                    onClick={() => {
+                      if (step.outputPreview) {
+                        setInspectingStepArtifact({
+                          title: step.title,
+                          role: step.roleName,
+                          content: step.outputPreview,
+                        });
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 border-2 text-xs font-mono transition-all ${
+                      isDone
+                        ? "border-emerald-500 bg-emerald-950/40 text-emerald-300 cursor-pointer hover:bg-emerald-900/60"
+                        : isActive
+                        ? "border-retro-amber bg-amber-950/40 text-retro-amber animate-pulse"
+                        : "border-retro-ink bg-retro-coal/40 text-retro-sand/60"
+                    }`}
+                    title={step.outputPreview ? "Klik untuk inspeksi artefak" : undefined}
+                  >
+                    {isDone ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                    ) : isActive ? (
+                      <Zap className="h-3.5 w-3.5 text-retro-amber fill-retro-amber animate-bounce" />
+                    ) : (
+                      <span className="text-[10px] font-pixel text-retro-sand">{idx + 1}</span>
+                    )}
+                    <span className="font-bold">{step.roleName}</span>
+                    {step.durationMs ? (
+                      <span className="text-[10px] opacity-75">({step.durationMs}ms)</span>
+                    ) : null}
+                  </div>
+                  {idx < pipelineHud.stepsHistory.length - 1 && (
+                    <span className="text-retro-ink font-bold">➔</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          {/* Inspecting Artifact Drawer */}
+          {inspectingStepArtifact && (
+            <div className="mt-2 p-2.5 border-2 border-emerald-500 bg-black/90 font-mono text-xs text-emerald-200">
+              <div className="flex items-center justify-between pb-1 mb-1 border-b border-emerald-800">
+                <span className="font-bold text-retro-amber">
+                  📜 Artefak Inspektor: {inspectingStepArtifact.title} ({inspectingStepArtifact.role})
+                </span>
+                <button
+                  onClick={() => setInspectingStepArtifact(null)}
+                  className="text-retro-sand hover:text-white cursor-pointer px-1"
+                >
+                  ✕ Tutup
+                </button>
+              </div>
+              <pre className="whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed text-[11px]">
+                {inspectingStepArtifact.content}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Canvas Container */}
       <div className="relative overflow-hidden border-2 border-black bg-retro-night shadow-pixel-lg">
@@ -2753,64 +3792,208 @@ export function OfficeSimulation({
         </div>
 
         <div className="lg:col-span-5">
-          <PixelPanel
-            title={`${t("office.workstation_title", "WORKSTATION")} [${(selectedPc?.internalName || "BAY 1A").toUpperCase()}]`}
-            variant="dark"
-            badge={
-              <PixelBadge
-                variant={selectedPc?.status === "online" ? "mint" : "coral"}
-                size="xs"
-              >
-                {selectedPc?.status === "online" ? t("office.online", "ONLINE") : t("office.offline", "OFFLINE")}
-              </PixelBadge>
-            }
-          >
-            <div className="space-y-3 text-xs font-mono">
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.assigned_model", "Assigned Model:")}</span>
-                <span className="font-bold text-retro-amber truncate max-w-[190px]">
-                  {selectedPc?.modelId || "ag/gemini-3.8-flash-high"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.adapter_driver", "Adapter / Driver:")}</span>
-                <span className="font-bold text-retro-cream">
-                  {selectedPc?.adapter || "antigravity"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.unit_price", "Unit Price (/1M tok):")}</span>
-                <span className="font-bold text-retro-mint">
-                  {selectedPc?.inputPrice || "$0.10"} In / {selectedPc?.outputPrice || "$0.40"} Out
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.context_window", "Context Window:")}</span>
-                <span className="font-bold text-retro-cream">
-                  {selectedPc?.context || "1,048k tok"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.location", "Location:")}</span>
-                <span className="font-bold text-retro-cream">
-                  {t("office.location_cubicle", "Cubicle 04: AI Workstations")} ({selectedPc?.deskLabel || "BAY 1A"})
-                </span>
-              </div>
-              <div>
-                <span className="text-retro-paper block mb-1">{t("office.capabilities", "Capabilities:")}</span>
-                <div className="flex flex-wrap gap-1">
-                  {(selectedPc?.capabilities || ["Antigravity", "Streaming"]).map((cap) => (
-                    <span
-                      key={cap}
-                      className="border border-black bg-retro-night px-1.5 py-0.5 text-[9px] text-retro-paper font-bold shadow-pixel-sm"
-                    >
-                      {cap}
-                    </span>
-                  ))}
+          {selectedProp ? (
+            <PixelPanel
+              title={`OBJECT [${selectedProp.name.toUpperCase()}]`}
+              variant="amber"
+              badge={
+                <PixelBadge variant="mint" size="xs">
+                  {selectedProp.icon} INTERACTIVE
+                </PixelBadge>
+              }
+            >
+              <div className="space-y-3.5 text-xs font-mono">
+                <div className="flex items-center gap-2.5 border-b border-retro-ink pb-2.5">
+                  <span className="text-2xl shrink-0 p-1 bg-retro-night border border-black">{selectedProp.icon}</span>
+                  <div>
+                    <span className="font-bold text-retro-amber text-xs block font-pixel">{selectedProp.name}</span>
+                    <span className="text-[10px] text-retro-paper">{selectedProp.room}</span>
+                  </div>
+                </div>
+
+                <p className="text-retro-paper text-[11px] leading-relaxed">
+                  {selectedProp.description}
+                </p>
+
+                <div className="border-t border-retro-ink pt-2.5 space-y-2">
+                  <span className="font-pixel text-[9px] uppercase tracking-wider text-retro-amber block">
+                    {language === "en" ? `Command Active Agent (${selectedAgent.name}):` : `Aksi Agen Aktif (${selectedAgent.name}):`}
+                  </span>
+                  <div className="flex flex-col gap-1.5">
+                    {selectedProp.actions.map((act) => (
+                      <button
+                        key={act.label}
+                        type="button"
+                        onClick={() => handleTriggerPropAction(selectedProp, act)}
+                        className="w-full flex items-center justify-between border-2 border-black bg-retro-night hover:bg-retro-amber hover:text-black text-retro-cream px-3 py-2 font-pixel text-[10px] shadow-pixel-xs transition-none cursor-pointer group"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm">{act.icon}</span>
+                          <span className="font-bold group-hover:text-black">{act.label}</span>
+                        </span>
+                        <span className="text-[9px] font-mono text-retro-mint group-hover:text-black font-bold">SIMS ACTION ❯</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </PixelPanel>
+            </PixelPanel>
+          ) : (
+            <PixelPanel
+              title={`${t("office.workstation_title", "WORKSTATION")} [${(selectedPc?.internalName || "BAY 1A").toUpperCase()}]`}
+              variant="dark"
+              badge={
+                <PixelBadge
+                  variant={selectedPc?.status === "online" ? "mint" : "coral"}
+                  size="xs"
+                >
+                  {selectedPc?.status === "online" ? t("office.online", "ONLINE") : t("office.offline", "OFFLINE")}
+                </PixelBadge>
+              }
+            >
+              <div className="space-y-3 text-xs font-mono">
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.assigned_model", "Assigned Model:")}</span>
+                  <span className="font-bold text-retro-amber truncate max-w-[190px]">
+                    {selectedPc?.modelId || "ag/gemini-3.8-flash-high"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.adapter_driver", "Adapter / Driver:")}</span>
+                  <span className="font-bold text-retro-cream">
+                    {selectedPc?.adapter || "antigravity"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.unit_price", "Unit Price (/1M tok):")}</span>
+                  <span className="font-bold text-retro-mint">
+                    {selectedPc?.inputPrice || "$0.10"} In / {selectedPc?.outputPrice || "$0.40"} Out
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.context_window", "Context Window:")}</span>
+                  <span className="font-bold text-retro-cream">
+                    {selectedPc?.context || "1,048k tok"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.location", "Location:")}</span>
+                  <span className="font-bold text-retro-cream">
+                    {t("office.location_cubicle", "Cubicle 04: AI Workstations")} ({selectedPc?.deskLabel || "BAY 1A"})
+                  </span>
+                </div>
+                <div>
+                  <span className="text-retro-paper block mb-1">{t("office.capabilities", "Capabilities:")}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {(selectedPc?.capabilities || ["Antigravity", "Streaming"]).map((cap) => (
+                      <span
+                        key={cap}
+                        className="border border-black bg-retro-night px-1.5 py-0.5 text-[9px] text-retro-paper font-bold shadow-pixel-sm"
+                      >
+                        {cap}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Desk Model Assignment */}
+                <div className="border-t border-retro-ink pt-2.5 mt-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-pixel text-[9px] uppercase tracking-wider text-retro-amber flex items-center gap-1.5">
+                      <Settings2 className="w-3 h-3 text-retro-amber" />
+                      {language === "en" ? "Desk Assignment:" : "Kustom Model Meja:"}
+                    </span>
+                    {(customDesks[selectedPc?.id || ""] || hotSwappedDesks[selectedPc?.id || ""]) && (
+                      <span className="text-[9px] font-mono text-retro-mint bg-retro-night px-1.5 py-0.5 border border-black font-bold">
+                        {customDesks[selectedPc?.id || ""] ? "CUSTOM" : "HOT-SWAPPED"}
+                      </span>
+                    )}
+                  </div>
+
+                  {!isEditingDesk ? (
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingDeskModel(selectedPc?.modelId || "");
+                          setIsEditingDesk(true);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 border-2 border-black bg-retro-night hover:bg-retro-amber hover:text-black text-retro-cream px-2 py-1.5 font-pixel text-[9px] cursor-pointer transition-none shadow-pixel-xs font-bold"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        {language === "en" ? "CONFIGURE MODEL" : "UBAH MODEL MEJA"}
+                      </button>
+                      {(customDesks[selectedPc?.id || ""] || hotSwappedDesks[selectedPc?.id || ""]) && (
+                        <button
+                          type="button"
+                          onClick={() => handleResetDesk(selectedPc?.id || "")}
+                          title={language === "en" ? "Reset desk to default detected model" : "Reset meja ke model bawaan"}
+                          className="flex items-center justify-center border-2 border-black bg-retro-night hover:bg-retro-coral hover:text-white text-retro-paper px-2 py-1.5 font-pixel text-[9px] cursor-pointer transition-none shadow-pixel-xs"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 bg-retro-night/90 p-2 border border-retro-ink">
+                      <div>
+                        <label className="text-[9px] text-retro-paper block mb-1 font-mono">
+                          {language === "en" ? "Select preset or type model ID:" : "Pilih preset atau ketik ID model:"}
+                        </label>
+                        <select
+                          className="w-full bg-retro-dark border border-retro-ink text-retro-cream text-[10px] p-1 font-mono mb-1.5"
+                          value={editingDeskModel}
+                          onChange={(e) => setEditingDeskModel(e.target.value)}
+                        >
+                          <option value="">-- {language === "en" ? "Choose from detected models" : "Pilih dari model terdeteksi"} --</option>
+                          {models.map((m) => (
+                            <option key={m.internal_name} value={m.internal_name}>
+                              {m.internal_name} ({m.provider_adapter})
+                            </option>
+                          ))}
+                          <optgroup label="Popular / Frontier Models">
+                            <option value="ag/gemini-3.8-flash-high">ag/gemini-3.8-flash-high (Antigravity)</option>
+                            <option value="ag/claude-sonnet-4-6">ag/claude-sonnet-4-6 (Antigravity)</option>
+                            <option value="ag/claude-opus-4-6-thinking">ag/claude-opus-4-6-thinking (Antigravity)</option>
+                            <option value="nvidia/deepseek-ai/deepseek-v4-flash">nvidia/deepseek-ai/deepseek-v4-flash</option>
+                            <option value="deepseek/deepseek-r1">deepseek/deepseek-r1 (Reasoning)</option>
+                            <option value="openai/gpt-4o">openai/gpt-4o (Flagship)</option>
+                            <option value="openai/o1">openai/o1 (Deep Reasoning)</option>
+                            <option value="groq/llama-3.3-70b-versatile">groq/llama-3.3-70b-versatile</option>
+                            <option value="ollama/qwen-2.5-coder-32b">ollama/qwen-2.5-coder-32b</option>
+                          </optgroup>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="e.g. ollama/llama-3.3, gpt-4o, claude-3-7-sonnet"
+                          value={editingDeskModel}
+                          onChange={(e) => setEditingDeskModel(e.target.value)}
+                          className="w-full bg-retro-dark border border-retro-ink text-retro-cream text-[10px] px-2 py-1 font-mono focus:border-retro-amber outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleAssignModelToDesk(selectedPc?.id || "", editingDeskModel)}
+                          className="flex-1 border border-black bg-retro-amber text-black hover:bg-retro-cream px-2 py-1 font-pixel text-[9px] font-bold cursor-pointer transition-none shadow-pixel-xs flex items-center justify-center gap-1"
+                        >
+                          <Save className="w-3 h-3" />
+                          {language === "en" ? "SAVE TO DESK" : "SIMPAN KE MEJA"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingDesk(false)}
+                          className="border border-black bg-retro-dark text-retro-paper hover:text-white px-2 py-1 font-pixel text-[9px] cursor-pointer transition-none"
+                        >
+                          {language === "en" ? "CANCEL" : "BATAL"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </PixelPanel>
+          )}
         </div>
       </div>
     </div>

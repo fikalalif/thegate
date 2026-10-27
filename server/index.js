@@ -24,6 +24,7 @@ const rolesRoutes = require("./routes/roles");
 const analyticsRoutes = require("./routes/analytics");
 const authRoutes = require("./routes/auth");
 const eventsRoutes = require("./routes/events");
+const pipelineRoutes = require("./routes/pipeline");
 
 // UNIFIED SINGLE PORT ARCHITECTURE
 const PORT = Number(process.env.THEGATE_PORT || process.env.PORT || 4848);
@@ -58,6 +59,7 @@ async function buildServer(options = {}) {
   await fastify.register(analyticsRoutes);
   await fastify.register(authRoutes);
   await fastify.register(eventsRoutes);
+  await fastify.register(pipelineRoutes);
 
   // 2. High-Performance Static Asset Delivery (Zero-404 on _next/static & public assets)
   const publicPath = path.join(__dirname, "..", "frontend", "public");
@@ -122,16 +124,28 @@ function startNextWorker() {
 
   try {
     const isWin = process.platform === "win32";
+    const userHome = process.env.USERPROFILE || process.env.HOME || "/tmp";
+    const logDir = path.join(userHome, ".thegate", "logs");
+    try {
+      fs.mkdirSync(logDir, { recursive: true });
+    } catch {}
+    const logFd = fs.openSync(path.join(logDir, "frontend.log"), "a");
+
     const child = spawn(process.execPath || "node", [standaloneServer], {
       cwd: path.dirname(standaloneServer),
       detached: !isWin,
       shell: false,
       env: { ...process.env, PORT: String(INTERNAL_WEB_PORT), HOSTNAME: "0.0.0.0" },
-      stdio: ["ignore", "ignore", "inherit"],
+      stdio: ["ignore", logFd, logFd],
     });
 
     child.on("error", (err) => {
       console.error("[Next.js Worker Error]:", err.message);
+    });
+
+    child.on("exit", (code, signal) => {
+      console.warn(`[Next.js Worker Exited] code=${code}, signal=${signal}`);
+      nextWorker = null;
     });
 
     if (child.unref && !isWin) {
@@ -148,7 +162,7 @@ function startNextWorker() {
 async function start() {
   try {
     // 1. Supervise internal Next.js standalone worker
-    const isPortOpen = await waitForPort(INTERNAL_WEB_PORT, 300);
+    const isPortOpen = await waitForPort(INTERNAL_WEB_PORT, 200);
     if (!isPortOpen) {
       nextWorker = startNextWorker();
       await waitForPort(INTERNAL_WEB_PORT, 6000);

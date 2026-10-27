@@ -234,7 +234,11 @@ async function analyticsRoutes(fastify, options) {
       source: "thegate",
     }));
 
-    const combined = [...tgEvents, ...nine.events];
+    const combined = [...tgEvents, ...nine.events].sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime() || 0;
+      const timeB = new Date(b.timestamp).getTime() || 0;
+      return timeB - timeA;
+    });
 
     const seen = new Set();
     const activeModels = [];

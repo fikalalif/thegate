@@ -3,6 +3,11 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -17,36 +22,23 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate Quality & Tests
+    name: Validate Backend & Frontend
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install Backend Test Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          pip install pytest pytest-asyncio aiosqlite httpx
-
-      - name: Run Backend Tests
-        env:
-          THEGATE_ENV: testing
-          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
-        run: python -m pytest tests/ -q
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Root Dependencies
+        run: npm ci
+
+      - name: Run Native Fastify Backend Tests
+        run: npm test
 
       - name: Validate Frontend TypeScript
         working-directory: frontend
@@ -54,52 +46,10 @@ jobs:
           npm ci
           npx tsc --noEmit
 
-  build-backend-binaries:
-    name: Build Standalone Backend (${{ matrix.os }})
+  build-and-publish:
+    name: Build Bundle & Publish to npm
     needs: validate
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact_name: thegate-backend-linux
-            binary_name: thegate-backend
-            out_path: backend/dist/thegate-backend
-          - os: windows-latest
-            artifact_name: thegate-backend.exe
-            binary_name: thegate-backend.exe
-            out_path: backend/dist/thegate-backend.exe
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install Backend Dependencies & PyInstaller
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt pyinstaller
-
-      - name: Build Standalone Executable
-        working-directory: backend
-        run: |
-          pyinstaller --noconfirm --onefile --name thegate-backend --hidden-import=uvicorn.logging --hidden-import=uvicorn.loops --hidden-import=uvicorn.loops.auto --hidden-import=uvicorn.loops.asyncio --hidden-import=uvicorn.protocols --hidden-import=uvicorn.protocols.http --hidden-import=uvicorn.protocols.http.auto --hidden-import=uvicorn.protocols.http.h11_impl --hidden-import=uvicorn.protocols.websockets --hidden-import=uvicorn.protocols.websockets.auto --hidden-import=aiosqlite --hidden-import=sqlalchemy.dialects.sqlite.aiosqlite entrypoint.py
-
-      - name: Upload Binary Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.out_path }}
-
-  publish:
-    name: Publish Package to npm
-    needs: [validate, build-backend-binaries]
     runs-on: ubuntu-latest
-    environment: NPM_TOKEN
     permissions:
       contents: read
       id-token: write
@@ -110,49 +60,43 @@ jobs:
       - name: Set up Node.js for npm Publishing
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
 
-      - name: Upgrade npm to latest for Trusted Publishing
-        run: npm install -g npm@latest
-
-      - name: Download Linux Binary
-        uses: actions/download-artifact@v4
-        with:
-          name: thegate-backend-linux
-          path: bin/
-
-      - name: Prepare Linux Binary
+      - name: Install Dependencies
         run: |
-          if [ -f bin/thegate-backend ]; then
-            cp bin/thegate-backend bin/thegate-backend-linux
-          elif [ -f bin/thegate-backend-linux ]; then
-            cp bin/thegate-backend-linux bin/thegate-backend
-          fi
-          chmod +x bin/thegate-backend* || true
-
-      - name: Download Windows Binary
-        uses: actions/download-artifact@v4
-        with:
-          name: thegate-backend.exe
-          path: bin/
+          npm ci
+          cd frontend && npm ci
 
       - name: Build Next.js Standalone Bundle
         working-directory: frontend
         run: |
-          npm ci
           npm run build
-          cp -r public .next/standalone/public
-          cp -r .next/static .next/standalone/.next/static
           rm -rf .next/cache
 
       - name: Ensure Executable Permissions
-        run: |
-          chmod +x bin/thegate.js bin/thegate-backend* || true
+        run: chmod +x bin/thegate.js
 
       - name: Dry Run Publish
         if: ${{ inputs.dry_run }}
         run: npm publish --dry-run --access public
 
-      - name: Publish to npm Registry via Trusted Publishing
+      - name: Publish to npm Registry
         if: ${{ !inputs.dry_run }}
-        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          CURRENT_VER=$(node -p "require('./package.json').version")
+          PUBLISHED_VER=$(npm view thegate@$CURRENT_VER version 2>/dev/null || echo "")
+
+          if [ "$PUBLISHED_VER" = "$CURRENT_VER" ]; then
+            echo "Version $CURRENT_VER is already published on npm. Skipping publication."
+            exit 0
+          fi
+
+          echo "🚀 Publishing version $CURRENT_VER to npm..."
+          if [ -n "$NODE_AUTH_TOKEN" ]; then
+            npm publish --access public
+          else
+            npm publish --access public --provenance
+          fi
