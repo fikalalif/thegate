@@ -174,13 +174,17 @@ function resolveRouting(payload = {}) {
     reason = `Balanced Strategy: Auto-routed to ${selected.internal_name} based on ${classification.domain} intent (${classification.reason})`;
   }
 
-  // 5. Auto-Role Matching
+  // 5. Explicit or Auto-Role Matching
   let assignedRole = null;
-  if (classification.recommendedRole) {
+  if (payload.role_key || payload.role) {
+    const key = payload.role_key || payload.role;
+    assignedRole = db.get("SELECT * FROM roles WHERE role_key = ? OR id = ?", [key, key]);
+  }
+  if (!assignedRole && classification.recommendedRole) {
     assignedRole = db.get("SELECT * FROM roles WHERE role_key = ?", [classification.recommendedRole]);
-    if (!assignedRole) {
-      assignedRole = db.get("SELECT * FROM roles WHERE is_default = 1");
-    }
+  }
+  if (!assignedRole) {
+    assignedRole = db.get("SELECT * FROM roles WHERE is_default = 1");
   }
 
   // Update role's current activity live

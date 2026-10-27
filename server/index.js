@@ -9,6 +9,8 @@ const proxy = require("@fastify/http-proxy");
 const fastifyStatic = require("@fastify/static");
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
+const { spawn } = require("child_process");
 const db = require("./db/index");
 const { seedDefaults } = require("./db/seed");
 
@@ -22,6 +24,7 @@ const rolesRoutes = require("./routes/roles");
 const analyticsRoutes = require("./routes/analytics");
 const authRoutes = require("./routes/auth");
 const eventsRoutes = require("./routes/events");
+const pipelineRoutes = require("./routes/pipeline");
 
 // UNIFIED SINGLE PORT ARCHITECTURE
 const PORT = Number(process.env.THEGATE_PORT || process.env.PORT || 4848);
@@ -56,6 +59,7 @@ async function buildServer(options = {}) {
   await fastify.register(analyticsRoutes);
   await fastify.register(authRoutes);
   await fastify.register(eventsRoutes);
+  await fastify.register(pipelineRoutes);
 
   // 2. High-Performance Static Asset Delivery (Zero-404 on _next/static & public assets)
   const publicPath = path.join(__dirname, "..", "frontend", "public");
@@ -88,8 +92,83 @@ async function buildServer(options = {}) {
   return fastify;
 }
 
+let nextWorker = null;
+
+function waitForPort(port, timeoutMs = 8000) {
+  const startT = Date.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      const req = http.get(`http://127.0.0.1:${port}/`, (res) => {
+        resolve(true);
+      });
+      req.on("error", () => {
+        if (Date.now() - startT > timeoutMs) {
+          resolve(false);
+        } else {
+          setTimeout(check, 150);
+        }
+      });
+      req.setTimeout(500, () => {
+        req.destroy();
+        if (Date.now() - startT > timeoutMs) resolve(false);
+        else setTimeout(check, 150);
+      });
+    };
+    check();
+  });
+}
+
+function startNextWorker() {
+  const standaloneServer = path.join(__dirname, "..", "frontend", ".next", "standalone", "server.js");
+  if (!fs.existsSync(standaloneServer)) return null;
+
+  try {
+    const isWin = process.platform === "win32";
+    const userHome = process.env.USERPROFILE || process.env.HOME || "/tmp";
+    const logDir = path.join(userHome, ".thegate", "logs");
+    try {
+      fs.mkdirSync(logDir, { recursive: true });
+    } catch {}
+    const logFd = fs.openSync(path.join(logDir, "frontend.log"), "a");
+
+    const child = spawn(process.execPath || "node", [standaloneServer], {
+      cwd: path.dirname(standaloneServer),
+      detached: !isWin,
+      shell: false,
+      env: { ...process.env, PORT: String(INTERNAL_WEB_PORT), HOSTNAME: "0.0.0.0" },
+      stdio: ["ignore", logFd, logFd],
+    });
+
+    child.on("error", (err) => {
+      console.error("[Next.js Worker Error]:", err.message);
+    });
+
+    child.on("exit", (code, signal) => {
+      console.warn(`[Next.js Worker Exited] code=${code}, signal=${signal}`);
+      nextWorker = null;
+    });
+
+    if (child.unref && !isWin) {
+      child.unref();
+    }
+
+    return child;
+  } catch (err) {
+    console.error("[Next.js Worker Spawn Failed]:", err.message);
+    return null;
+  }
+}
+
 async function start() {
   try {
+    // 1. Supervise internal Next.js standalone worker
+    const isPortOpen = await waitForPort(INTERNAL_WEB_PORT, 200);
+    if (!isPortOpen) {
+      nextWorker = startNextWorker();
+      await waitForPort(INTERNAL_WEB_PORT, 6000);
+    }
+
+    // 2. Start Unified Fastify Gateway
     const server = await buildServer({ enableProxy: true });
     await server.listen({ port: PORT, host: HOST });
     console.log(`[TheGate Unified Gateway] Online & listening on http://${HOST}:${PORT}`);
@@ -98,6 +177,11 @@ async function start() {
 
     const shutdown = async () => {
       console.log("\n[TheGate Unified Gateway] Shutting down gracefully...");
+      if (nextWorker) {
+        try {
+          nextWorker.kill();
+        } catch {}
+      }
       await server.close();
       process.exit(0);
     };
@@ -106,6 +190,11 @@ async function start() {
     process.on("SIGTERM", shutdown);
   } catch (err) {
     console.error("[TheGate Unified Gateway Fatal Error]:", err);
+    if (nextWorker) {
+      try {
+        nextWorker.kill();
+      } catch {}
+    }
     process.exit(1);
   }
 }

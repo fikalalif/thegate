@@ -190,6 +190,38 @@ function createSchema() {
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS pipelines (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      status TEXT NOT NULL,
+      goal TEXT NOT NULL,
+      total_steps INTEGER NOT NULL DEFAULT 0,
+      current_step_index INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      total_duration_ms INTEGER NOT NULL DEFAULT 0,
+      final_output TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS pipeline_steps (
+      id TEXT PRIMARY KEY,
+      pipeline_id TEXT NOT NULL,
+      step_index INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      role_key TEXT NOT NULL,
+      model_selected TEXT NOT NULL,
+      status TEXT NOT NULL,
+      input_artifacts TEXT NOT NULL DEFAULT '{}',
+      output_artifacts TEXT,
+      execution_time_ms INTEGER NOT NULL DEFAULT 0,
+      tokens INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(pipeline_id) REFERENCES pipelines(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_pipe_steps ON pipeline_steps(pipeline_id);
   `;
 
   if (isNodeSqlite) {

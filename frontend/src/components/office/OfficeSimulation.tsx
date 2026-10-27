@@ -38,6 +38,10 @@ import {
   Terminal,
   ShieldAlert,
   Flame,
+  Settings2,
+  Edit3,
+  Save,
+  Workflow,
 } from "lucide-react";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
@@ -48,6 +52,28 @@ import { useI18n, Language } from "@/lib/i18n";
 // =====================================================================
 // Types & Interfaces
 // =====================================================================
+
+export interface PipelineHUDStep {
+  title: string;
+  roleName: string;
+  status: "PENDING" | "IN_PROGRESS" | "DONE";
+  durationMs?: number;
+  tokens?: number;
+  outputPreview?: string;
+}
+
+export interface PipelineHUDState {
+  pipelineId: string;
+  title: string;
+  status: "PLANNING" | "RUNNING" | "PAUSED" | "COMPLETED" | "FAILED";
+  stepIndex: number;
+  totalSteps: number;
+  stepTitle?: string;
+  stepProgress?: string;
+  dialogue?: string;
+  activeRole?: string;
+  stepsHistory: PipelineHUDStep[];
+}
 
 export interface ModelWorkstationPC {
   id: string;
@@ -94,7 +120,7 @@ export interface CampusAgent {
   gy: number;
   targetGx: number;
   targetGy: number;
-  state: "idle" | "walking" | "using_pc" | "cafe" | "gym" | "arcade" | "meeting" | "focus" | "reception";
+  state: "idle" | "walking" | "using_pc" | "cafe" | "gym" | "arcade" | "meeting" | "focus" | "reception" | "swimming" | "sunbathing" | "garden";
   stateTicks: number;
   targetPcId?: string;
   currentRoom: string;
@@ -111,15 +137,15 @@ interface OfficeSimulationProps {
   onOpenRecommendQuest?: () => void;
 }
 
-// Isometric Projection Math Constants
-const TILE_W = 44;
-const TILE_H = 22;
-const TILE_HALF_W = 22;
-const TILE_HALF_H = 11;
+// Isometric Projection Math Constants (Expanded Scale for High-DPI Clarity & Breathing Room)
+const TILE_W = 50;
+const TILE_H = 25;
+const TILE_HALF_W = 25;
+const TILE_HALF_H = 12.5;
 
-// Grid Dimensions: 28 cols x 20 rows
+// Grid Dimensions: 28 cols x 22 rows (Expanded with Urban Estate Grounds)
 const GRID_COLS = 28;
-const GRID_ROWS = 20;
+const GRID_ROWS = 22;
 
 // High-Contrast Room Partition Definitions
 export interface RoomZone {
@@ -141,16 +167,16 @@ export interface RoomZone {
 const ROOM_ZONES: RoomZone[] = [
   {
     id: "lobby",
-    name: "Reception & Welcome Lobby",
+    name: "Grand Reception & Visitor Lounge",
     code: "01: LOBBY",
-    x1: 1,
-    y1: 15,
-    x2: 7,
-    y2: 19,
-    darkFloorA: "#2E263B",
-    darkFloorB: "#382F47",
-    lightFloorA: "#EDE2D0",
-    lightFloorB: "#E2D5C1",
+    x1: 10,
+    y1: 9,
+    x2: 15,
+    y2: 13,
+    darkFloorA: "#241E2F",
+    darkFloorB: "#2C2538",
+    lightFloorA: "#F8F4EC",
+    lightFloorB: "#EFE8DA",
     accentColor: "#FFB71B",
     accentGlow: "rgba(255, 183, 27, 0.4)",
   },
@@ -161,26 +187,26 @@ const ROOM_ZONES: RoomZone[] = [
     x1: 1,
     y1: 1,
     x2: 7,
-    y2: 6,
-    darkFloorA: "#1A2B3C",
-    darkFloorB: "#21364A",
-    lightFloorA: "#E4DCCF",
-    lightFloorB: "#DACFBE",
+    y2: 5,
+    darkFloorA: "#0F172A",
+    darkFloorB: "#020617",
+    lightFloorA: "#334155",
+    lightFloorB: "#1E293B",
     accentColor: "#00E5FF",
     accentGlow: "rgba(0, 229, 255, 0.45)",
   },
   {
     id: "director-suite",
-    name: "Executive Director Suite",
+    name: "Executive Director Suite & Library",
     code: "03: DIRECTOR SUITE",
     x1: 8,
     y1: 1,
     x2: 15,
-    y2: 6,
-    darkFloorA: "#45281F",
-    darkFloorB: "#543226",
-    lightFloorA: "#E8D3BF",
-    lightFloorB: "#DFC5AF",
+    y2: 5,
+    darkFloorA: "#4D2612",
+    darkFloorB: "#3B1C0B",
+    lightFloorA: "#9A5B32",
+    lightFloorB: "#874D28",
     accentColor: "#F59E0B",
     accentGlow: "rgba(245, 158, 11, 0.4)",
   },
@@ -191,26 +217,26 @@ const ROOM_ZONES: RoomZone[] = [
     x1: 16,
     y1: 1,
     x2: 27,
-    y2: 10,
-    darkFloorA: "#222B3D",
-    darkFloorB: "#2C374D",
-    lightFloorA: "#E2DCD2",
-    lightFloorB: "#D5CEC2",
+    y2: 8,
+    darkFloorA: "#1E293B",
+    darkFloorB: "#162030",
+    lightFloorA: "#E2E8F0",
+    lightFloorB: "#CBD5E1",
     accentColor: "#34D399",
     accentGlow: "rgba(52, 211, 153, 0.45)",
   },
   {
     id: "boardroom",
-    name: "Boardroom & Strategy Conference",
+    name: "Boardroom & Strategy War Room",
     code: "05: BOARDROOM",
     x1: 1,
-    y1: 7,
-    x2: 7,
-    y2: 14,
-    darkFloorA: "#312347",
-    darkFloorB: "#3D2B57",
-    lightFloorA: "#E2D8CD",
-    lightFloorB: "#D5C8BA",
+    y1: 6,
+    x2: 9,
+    y2: 9,
+    darkFloorA: "#2E2452",
+    darkFloorB: "#231B3E",
+    lightFloorA: "#E0E7FF",
+    lightFloorB: "#C7D2FE",
     accentColor: "#C084FC",
     accentGlow: "rgba(192, 132, 252, 0.4)",
   },
@@ -218,57 +244,354 @@ const ROOM_ZONES: RoomZone[] = [
     id: "focus-pods",
     name: "Soundproof Focus & Phone Pods",
     code: "06: FOCUS PODS",
-    x1: 8,
-    y1: 7,
+    x1: 10,
+    y1: 6,
     x2: 15,
-    y2: 10,
-    darkFloorA: "#1F3447",
-    darkFloorB: "#28435C",
-    lightFloorA: "#DCE3EB",
-    lightFloorB: "#CFD8E2",
+    y2: 8,
+    darkFloorA: "#1E3A5F",
+    darkFloorB: "#172E4C",
+    lightFloorA: "#DBEAFE",
+    lightFloorB: "#BFDBFE",
     accentColor: "#60A5FA",
     accentGlow: "rgba(96, 165, 250, 0.4)",
   },
   {
     id: "pantry-cafeteria",
-    name: "Pantry, Cafeteria & Espresso Bar",
+    name: "Barista Pantry, Kitchen & Bistro",
     code: "07: PANTRY & BISTRO",
-    x1: 8,
-    y1: 11,
-    x2: 17,
-    y2: 19,
-    darkFloorA: "#4A2D1B",
-    darkFloorB: "#5A3822",
-    lightFloorA: "#EDD9C4",
-    lightFloorB: "#DFC6AD",
+    x1: 1,
+    y1: 10,
+    x2: 9,
+    y2: 13,
+    darkFloorA: "#334155",
+    darkFloorB: "#0F172A",
+    lightFloorA: "#FFFFFF",
+    lightFloorB: "#1E293B",
     accentColor: "#FB923C",
     accentGlow: "rgba(251, 146, 60, 0.4)",
   },
   {
-    id: "recreation-gym",
-    name: "Arcade, Recreation & Wellness Gym",
-    code: "08: ARCADE & GYM",
-    x1: 18,
-    y1: 11,
+    id: "resort-pool",
+    name: "Outdoor Resort Pool & Tropical Garden",
+    code: "08: POOL & GARDEN",
+    x1: 0,
+    y1: 14,
     x2: 27,
-    y2: 19,
-    darkFloorA: "#1A3B2E",
-    darkFloorB: "#224A3B",
-    lightFloorA: "#D4E8DC",
-    lightFloorB: "#C5DCCE",
-    accentColor: "#2DD4BF",
-    accentGlow: "rgba(45, 212, 191, 0.4)",
+    y2: 21,
+    darkFloorA: "#0891B2",
+    darkFloorB: "#0E7490",
+    lightFloorA: "#06B6D4",
+    lightFloorB: "#22D3EE",
+    accentColor: "#38BDF8",
+    accentGlow: "rgba(56, 189, 248, 0.5)",
   },
 ];
 
 export const RELAXATION_SPOTS = [
-  { gx: 12, gy: 14, state: "cafe" as const, room: "pantry-cafeteria", activity: "Ngopi di Pantry (Santai)" },
-  { gx: 20, gy: 14, state: "arcade" as const, room: "recreation-gym", activity: "Santai Main Arcade" },
-  { gx: 25, gy: 14, state: "gym" as const, room: "recreation-gym", activity: "Olahraga di Gym" },
-  { gx: 4, gy: 17, state: "reception" as const, room: "lobby", activity: "Santai di Sofa Lobby" },
-  { gx: 11, gy: 8, state: "focus" as const, room: "focus-pods", activity: "Meditasi di Focus Pod" },
-  { gx: 4, gy: 10, state: "meeting" as const, room: "boardroom", activity: "Santai di Boardroom" },
-  { gx: 11, gy: 3, state: "idle" as const, room: "director-suite", activity: "Duduk di Director Suite" },
+  { gx: 6, gy: 12, state: "cafe" as const, room: "pantry-cafeteria", activity: "Ngopi di Bistro (Santai)" },
+  { gx: 22, gy: 18, state: "swimming" as const, room: "resort-pool", activity: "Berenang di Kolam Renang Depan" },
+  { gx: 18, gy: 17, state: "sunbathing" as const, room: "resort-pool", activity: "Berjemur di Kursi Tepi Kolam" },
+  { gx: 5, gy: 18, state: "garden" as const, room: "resort-pool", activity: "Duduk di Taman Bunga Depan" },
+  { gx: 12, gy: 12, state: "reception" as const, room: "lobby", activity: "Santai di Sofa Lobby" },
+  { gx: 11, gy: 7, state: "focus" as const, room: "focus-pods", activity: "Meditasi di Focus Pod" },
+  { gx: 5, gy: 7.5, state: "meeting" as const, room: "boardroom", activity: "Diskusi di Boardroom" },
+  { gx: 11.5, gy: 3, state: "idle" as const, room: "director-suite", activity: "Membaca di Director Suite" },
+];
+
+export interface InteractivePropAction {
+  label: string;
+  icon: string;
+  agentState: CampusAgent["state"];
+  activity: string;
+  thoughtEmoji: string;
+  dialogueText: string;
+}
+
+export interface InteractiveProp {
+  id: string;
+  name: string;
+  room: string;
+  gx: number;
+  gy: number;
+  radius: number;
+  icon: string;
+  description: string;
+  actions: InteractivePropAction[];
+}
+
+export const INTERACTIVE_PROPS: InteractiveProp[] = [
+  {
+    id: "prop-pool",
+    name: "Luxury Resort Pool",
+    room: "08: Outdoor Pool & Garden",
+    gx: 22,
+    gy: 18,
+    radius: 42,
+    icon: "🏊",
+    description: "Turquoise heated pool with floating duck, chrome entry ladder, and fresh water caustics.",
+    actions: [
+      {
+        label: "Berenang di Kolam",
+        icon: "🏊",
+        agentState: "swimming",
+        activity: "Berenang di Kolam Renang Depan",
+        thoughtEmoji: "🏊",
+        dialogueText: "Splashing into the crystal blue pool to recharge thermal capacity after intensive LLM inference runs!",
+      },
+      {
+        label: "Main dengan Bebek Pelampung",
+        icon: "🦆",
+        agentState: "swimming",
+        activity: "Main dengan Bebek Pelampung",
+        thoughtEmoji: "🦆",
+        dialogueText: "Floating alongside the iconic 16-bit yellow duck. Fun meter restored to 100%!",
+      },
+    ],
+  },
+  {
+    id: "prop-lounger",
+    name: "Poolside Sun Lounger & Parasol",
+    room: "08: Outdoor Pool & Garden",
+    gx: 17,
+    gy: 17.5,
+    radius: 30,
+    icon: "🏖️",
+    description: "Travertine pool deck equipped with striped beach towels, sun shades, and iced fruit drinks.",
+    actions: [
+      {
+        label: "Berjemur dengan Kacamata Hitam",
+        icon: "🕶️",
+        agentState: "sunbathing",
+        activity: "Berjemur di Kursi Tepi Kolam",
+        thoughtEmoji: "🏖️",
+        dialogueText: "Putting on shades and soaking in the sun while monitoring token burn rate in complete luxury.",
+      },
+      {
+        label: "Minum Jus Tropis Dingin",
+        icon: "🍹",
+        agentState: "sunbathing",
+        activity: "Minum Jus Tropis Dingin",
+        thoughtEmoji: "🍹",
+        dialogueText: "Chilling out with cold tropical juice under the striped umbrella.",
+      },
+    ],
+  },
+  {
+    id: "prop-garden",
+    name: "Botanical Garden & Park Bench",
+    room: "08: Outdoor Pool & Garden",
+    gx: 5,
+    gy: 18,
+    radius: 32,
+    icon: "🌸",
+    description: "Lush green grass courtyard with blooming flowers, tropical palm trees, and hand-carved teak bench.",
+    actions: [
+      {
+        label: "Duduk di Bangku Taman",
+        icon: "🌳",
+        agentState: "garden",
+        activity: "Duduk di Taman Bunga Depan",
+        thoughtEmoji: "🌸",
+        dialogueText: "Resting peacefully surrounded by tropical greenery and blooming flowers in the courtyard.",
+      },
+      {
+        label: "Baca Buku di Bawah Pohon",
+        icon: "📖",
+        agentState: "garden",
+        activity: "Membaca Buku di Bawah Pohon",
+        thoughtEmoji: "📖",
+        dialogueText: "Reading 'Designing High-Throughput Routing Gateways' under the shade of the monstera palm.",
+      },
+    ],
+  },
+  {
+    id: "prop-bbq",
+    name: "Charcoal Stone BBQ Grill",
+    room: "08: Outdoor Pool & Garden",
+    gx: 8,
+    gy: 16.5,
+    radius: 28,
+    icon: "🥩",
+    description: "Outdoor granite masonry barbecue station with live woodsmoke, grilling skewers, and burgers.",
+    actions: [
+      {
+        label: "Panggang Burger & Sosis",
+        icon: "🍔",
+        agentState: "garden",
+        activity: "Panggang Burger & Sosis",
+        thoughtEmoji: "🍔",
+        dialogueText: "Flipping gourmet burgers on the stone grill! Nothing beats the aroma of charcoal BBQ in the courtyard.",
+      },
+    ],
+  },
+  {
+    id: "prop-espresso",
+    name: "Barista Espresso Bar",
+    room: "07: Pantry & Bistro",
+    gx: 4,
+    gy: 10.5,
+    radius: 30,
+    icon: "☕",
+    description: "Commercial multi-group Italian espresso maker pulling dark roast crema into ceramic demitasse cups.",
+    actions: [
+      {
+        label: "Seduh Double Shot Espresso",
+        icon: "☕",
+        agentState: "cafe",
+        activity: "Ngopi di Bistro (Santai)",
+        thoughtEmoji: "☕",
+        dialogueText: "Pulling a rich double-shot espresso to supercharge cognitive throughput for the next prompt wave!",
+      },
+      {
+        label: "Ambil Croissant Hangat",
+        icon: "🥐",
+        agentState: "cafe",
+        activity: "Makan Croissant Hangat",
+        thoughtEmoji: "🥐",
+        dialogueText: "Enjoying a buttery bakery croissant at the black-and-white checkered bistro counter.",
+      },
+    ],
+  },
+  {
+    id: "prop-arcade",
+    name: "Retro 16-Bit Arcade Cabinet",
+    room: "08: Patio Arcade",
+    gx: 20,
+    gy: 11.5,
+    radius: 26,
+    icon: "🕹️",
+    description: "Classic CRT arcade cabinet running custom 16-bit retro games with illuminated joystick controls.",
+    actions: [
+      {
+        label: "Main Game Arcade Retro",
+        icon: "🎮",
+        agentState: "arcade",
+        activity: "Main Game Arcade Retro",
+        thoughtEmoji: "🕹️",
+        dialogueText: "Mashing arcade buttons and setting the all-time high score on TheGate 16b retro cabinet!",
+      },
+    ],
+  },
+  {
+    id: "prop-server",
+    name: "Ingress Router Server Vault",
+    room: "02: Server Vault",
+    gx: 4,
+    gy: 2.2,
+    radius: 34,
+    icon: "⚡",
+    description: "High-density server racks hosting encrypted 9Router proxy nodes, SSE streaming buffers, and LED arrays.",
+    actions: [
+      {
+        label: "Diagnostik Server 9Router",
+        icon: "⚡",
+        agentState: "using_pc",
+        activity: "Cek Status Server Vault 9Router",
+        thoughtEmoji: "⚡",
+        dialogueText: "Querying rack telemetry: 121 models active, 0.00% 5xx error budget, sub-millisecond edge latency confirmed!",
+      },
+    ],
+  },
+  {
+    id: "prop-director",
+    name: "Meja Direktur & Perpustakaan",
+    room: "03: Director Suite",
+    gx: 11.5,
+    gy: 3.2,
+    radius: 30,
+    icon: "📚",
+    description: "Executive desk with banker's lamp, dark walnut bookshelves, and signed autonomous AI governance charters.",
+    actions: [
+      {
+        label: "Baca Rencana Strategis AI",
+        icon: "📜",
+        agentState: "idle",
+        activity: "Membaca di Director Suite",
+        thoughtEmoji: "📜",
+        dialogueText: "Reviewing executive FinOps arbitration charters: -77.3% cost reduction verified across enterprise tenants.",
+      },
+    ],
+  },
+  {
+    id: "prop-warroom",
+    name: "AI Arbitrage War Room Table",
+    room: "05: Boardroom",
+    gx: 5,
+    gy: 7.5,
+    radius: 36,
+    icon: "🎯",
+    description: "Long conference table equipped with executive swivel chairs and projection displays for tactical routing.",
+    actions: [
+      {
+        label: "Kumpulkan Rapat Strategi",
+        icon: "📢",
+        agentState: "meeting",
+        activity: "Diskusi di Boardroom",
+        thoughtEmoji: "📢",
+        dialogueText: "Calling all agents to the boardroom table: reviewing speculative routing thresholds and fallback cascades!",
+      },
+    ],
+  },
+  {
+    id: "prop-pod",
+    name: "Soundproof Acoustic Focus Pod",
+    room: "06: Focus Pods",
+    gx: 11,
+    gy: 7,
+    radius: 26,
+    icon: "🎧",
+    description: "Isolated acoustic booth with active noise cancellation glass for deep uninterrupted architecture work.",
+    actions: [
+      {
+        label: "Masuk Mode Deep Focus",
+        icon: "🎧",
+        agentState: "focus",
+        activity: "Meditasi di Focus Pod",
+        thoughtEmoji: "🎧",
+        dialogueText: "Noise cancellation engaged. Zero distraction mode: analyzing complex AST token representations.",
+      },
+    ],
+  },
+  {
+    id: "prop-fireplace",
+    name: "Perapian & Ruang Tamu",
+    room: "01: Reception Lounge",
+    gx: 1.5,
+    gy: 16.5,
+    radius: 28,
+    icon: "🔥",
+    description: "Warm stone hearth with dancing wood embers, brick chimney, and deep leather lounge armchair.",
+    actions: [
+      {
+        label: "Hangatkan Diri di Perapian",
+        icon: "🔥",
+        agentState: "reception",
+        activity: "Santai di Sofa Ruang Tamu",
+        thoughtEmoji: "🔥",
+        dialogueText: "Relaxing on the leather armchair enjoying the crackling warmth of the brick fireplace.",
+      },
+    ],
+  },
+  {
+    id: "prop-gate",
+    name: "⛩️ Gerbang Utama TheGate",
+    room: "Front Yard Entrance",
+    gx: 13.5,
+    gy: 21.5,
+    radius: 34,
+    icon: "⛩️",
+    description: "Ornate ironwork security gate with brick pillars, stone walkway, and illuminated gold crest.",
+    actions: [
+      {
+        label: "Inspeksi Gerbang Keamanan",
+        icon: "🛡️",
+        agentState: "reception",
+        activity: "Cek Keamanan Gerbang Depan",
+        thoughtEmoji: "🛡️",
+        dialogueText: "Perimeter check: Wrought-iron fences locked, zero unauthenticated intrusion detected at the gate.",
+      },
+    ],
+  },
 ];
 
 export const DEFAULT_FALLBACK_AGENT: CampusAgent = {
@@ -302,19 +625,24 @@ export function getActivityLabel(activity: string | undefined, lang: Language): 
 
   const map: Record<string, { en: string; id: string }> = {
     "cafe": { en: "Having Coffee at Pantry (Relaxing)", id: "Ngopi di Pantry (Santai)" },
-    "arcade": { en: "Playing Arcade Games (Relaxing)", id: "Santai Main Arcade" },
-    "gym": { en: "Working Out at Gym", id: "Olahraga di Gym" },
-    "reception": { en: "Relaxing on Lobby Couch", id: "Santai di Sofa Lobby" },
+    "arcade": { en: "Playing Arcade on Patio (Relaxing)", id: "Santai Main Arcade Patio" },
+    "gym": { en: "Relaxing by the Garden", id: "Duduk di Taman Bunga" },
+    "swimming": { en: "Swimming in Resort Pool (Relaxing)", id: "Berenang di Kolam Renang (Santai)" },
+    "sunbathing": { en: "Sunbathing on Poolside Lounger", id: "Berjemur di Kursi Pantai" },
+    "garden": { en: "Resting on Garden Park Bench", id: "Duduk di Bangku Taman Bunga" },
+    "reception": { en: "Relaxing on Living Room Couch", id: "Santai di Sofa Ruang Tamu" },
     "focus": { en: "Focusing in Soundproof Pod", id: "Meditasi di Focus Pod" },
     "meeting": { en: "Chilling in Boardroom", id: "Santai di Boardroom" },
-    "idle": { en: "Resting in Director Suite", id: "Duduk di Director Suite" },
+    "idle": { en: "Reading in Master Study", id: "Membaca di Master Study" },
     "Ngopi di Pantry (Santai)": { en: "Having Coffee at Pantry (Relaxing)", id: "Ngopi di Pantry (Santai)" },
-    "Santai Main Arcade": { en: "Playing Arcade Games (Relaxing)", id: "Santai Main Arcade" },
-    "Olahraga di Gym": { en: "Working Out at Gym", id: "Olahraga di Gym" },
-    "Santai di Sofa Lobby": { en: "Relaxing on Lobby Couch", id: "Santai di Sofa Lobby" },
+    "Berenang di Kolam Renang (Santai)": { en: "Swimming in Resort Pool (Relaxing)", id: "Berenang di Kolam Renang (Santai)" },
+    "Berjemur di Kursi Pantai": { en: "Sunbathing on Poolside Lounger", id: "Berjemur di Kursi Pantai" },
+    "Duduk di Bangku Taman Bunga": { en: "Resting on Garden Park Bench", id: "Duduk di Bangku Taman Bunga" },
+    "Santai Main Arcade Patio": { en: "Playing Arcade on Patio (Relaxing)", id: "Santai Main Arcade Patio" },
+    "Santai di Sofa Ruang Tamu": { en: "Relaxing on Living Room Couch", id: "Santai di Sofa Ruang Tamu" },
     "Meditasi di Focus Pod": { en: "Focusing in Soundproof Pod", id: "Meditasi di Focus Pod" },
     "Santai di Boardroom": { en: "Chilling in Boardroom", id: "Santai di Boardroom" },
-    "Duduk di Director Suite": { en: "Resting in Director Suite", id: "Duduk di Director Suite" },
+    "Membaca di Master Study": { en: "Reading in Master Study", id: "Membaca di Master Study" },
   };
 
   if (map[activity]) {
@@ -439,15 +767,72 @@ export function OfficeSimulation({
   const [allowRoaming, setAllowRoaming] = useState<boolean>(true);
 
   // Selection & Telemetry State
-  const [selectedPcId, setSelectedPcId] = useState<string>("pc-0");
+  const [selectedPcId, setSelectedPcId] = useState<string | null>("pc-0");
   const [hoveredPcId, setHoveredPcId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>(DEFAULT_FALLBACK_AGENT.id);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
 
   // Real Ingress Telemetry & Live Traffic State
   const [liveTraffic, setLiveTraffic] = useState<LiveTrafficResponse | null>(null);
   const [lastHandledEventId, setLastHandledEventId] = useState<string | null>(null);
   const [isTestPromptSending, setIsTestPromptSending] = useState<boolean>(false);
   const [ingressToast, setIngressToast] = useState<string | null>(null);
+
+  // Multi-Agent Pipeline Orchestration State (PRD 5.3 & 5.4)
+  const [pipelineHud, setPipelineHud] = useState<PipelineHUDState | null>(null);
+  const [isDispatchingPipeline, setIsDispatchingPipeline] = useState<boolean>(false);
+  const [inspectingStepArtifact, setInspectingStepArtifact] = useState<{ title: string; role: string; content: string } | null>(null);
+
+  // User Custom Desk Assignments & Dynamic Hot-Swap State
+  const [customDesks, setCustomDesks] = useState<Record<string, { modelId: string }>>({});
+  const [hotSwappedDesks, setHotSwappedDesks] = useState<Record<string, { modelId: string; timestamp: number }>>({});
+  const [editingDeskModel, setEditingDeskModel] = useState<string>("");
+  const [isEditingDesk, setIsEditingDesk] = useState<boolean>(false);
+
+  // Load custom desks from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("thegate_custom_desks");
+      if (saved) {
+        setCustomDesks(JSON.parse(saved));
+      }
+    } catch {}
+  }, []);
+
+  const handleAssignModelToDesk = (deskId: string, newModelId: string) => {
+    const trimmed = newModelId.trim();
+    if (!trimmed) return;
+    setCustomDesks((prev) => {
+      const next = { ...prev, [deskId]: { modelId: trimmed } };
+      try {
+        localStorage.setItem("thegate_custom_desks", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    setHotSwappedDesks((prev) => {
+      const next = { ...prev };
+      delete next[deskId];
+      return next;
+    });
+    setIsEditingDesk(false);
+  };
+
+  const handleResetDesk = (deskId: string) => {
+    setCustomDesks((prev) => {
+      const next = { ...prev };
+      delete next[deskId];
+      try {
+        localStorage.setItem("thegate_custom_desks", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    setHotSwappedDesks((prev) => {
+      const next = { ...prev };
+      delete next[deskId];
+      return next;
+    });
+    setIsEditingDesk(false);
+  };
 
   // Live Database Roles (Strict 1-to-1 NPC Coupling)
   const [dbRoles, setDbRoles] = useState<RoleItem[]>([]);
@@ -473,22 +858,14 @@ export function OfficeSimulation({
 
   const hasRealModels = (models && models.length > 0) || (liveTraffic && liveTraffic.recent_requests.length > 0);
 
-  // Poll real-time live traffic every 1.8 seconds
+  // Initial traffic overview metrics fetch (PRD v2.0: Event-driven via SSE)
   useEffect(() => {
     let isMounted = true;
-    const fetchLiveTraffic = async () => {
-      try {
-        const data = await api.getLiveTraffic();
-        if (isMounted) {
-          setLiveTraffic(data);
-        }
-      } catch {}
-    };
-    fetchLiveTraffic();
-    const interval = setInterval(fetchLiveTraffic, 1800);
+    api.getLiveTraffic().then((data) => {
+      if (isMounted) setLiveTraffic(data);
+    }).catch(() => {});
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
   }, []);
 
@@ -523,18 +900,20 @@ export function OfficeSimulation({
   };
 
   // -------------------------------------------------------------------
-  // 1. Dynamic Workstation PCs Mapping (Antigravity First at BAY 1A)
+  // 1. Dynamic Workstation PCs Mapping (Diverse Multi-Provider Representation)
   // -------------------------------------------------------------------
-  const workstationPCs = useMemo<ModelWorkstationPC[]>(() => {
+  const baseWorkstationPCs = useMemo<ModelWorkstationPC[]>(() => {
     const cubicleSlots = [
-      { gx: 18, gy: 2, label: "BAY 1A (ANTIGRAVITY)" },
-      { gx: 22, gy: 2, label: "BAY 1B" },
-      { gx: 25, gy: 2, label: "BAY 1C" },
-      { gx: 18, gy: 5, label: "BAY 2A" },
-      { gx: 22, gy: 5, label: "BAY 2B" },
-      { gx: 25, gy: 5, label: "BAY 2C" },
-      { gx: 20, gy: 8, label: "BAY 3A" },
-      { gx: 24, gy: 8, label: "BAY 3B" },
+      { gx: 18, gy: 2, label: "BAY 1 (ANTIGRAVITY)" },
+      { gx: 21, gy: 2, label: "BAY 2 (KIRO AI)" },
+      { gx: 24, gy: 2, label: "BAY 3 (GROQ LLAMA)" },
+      { gx: 27, gy: 2, label: "BAY 4 (DEEPSEEK V4)" },
+      { gx: 18, gy: 5, label: "BAY 5 (NVIDIA AI)" },
+      { gx: 21, gy: 5, label: "BAY 6 (GLM FRONTIER)" },
+      { gx: 24, gy: 5, label: "BAY 7 (GEMINI NATIVE)" },
+      { gx: 27, gy: 5, label: "BAY 8 (CLOUDFLARE AI)" },
+      { gx: 20, gy: 8, label: "BAY 9 (MIMO PRO)" },
+      { gx: 24, gy: 8, label: "BAY 10 (CLAUDE OPUS)" },
     ];
 
     if (!models || models.length === 0) {
@@ -560,7 +939,7 @@ export function OfficeSimulation({
           };
         }
         return {
-          id: `pc-standby-${idx}`,
+          id: `pc-${idx}`,
           modelId: "offline",
           internalName: `Workstation ${slot.label} (Standby)`,
           adapter: "none",
@@ -589,9 +968,9 @@ export function OfficeSimulation({
 
     const getCategory = (name: string): ModelWorkstationPC["category"] => {
       const lower = name.toLowerCase();
-      if (lower.includes("coder") || lower.includes("deepseek") || lower.includes("claude")) return "coding";
-      if (lower.includes("o1") || lower.includes("qwen") || lower.includes("glm") || lower.includes("gpt-4o")) return "reasoning";
-      if (lower.includes("mini") || lower.includes("flash") || lower.includes("haiku")) return "speed";
+      if (lower.includes("coder") || lower.includes("deepseek") || lower.includes("claude") || lower.includes("qwen")) return "coding";
+      if (lower.includes("o1") || lower.includes("glm") || lower.includes("gpt-4o") || lower.includes("thinking") || lower.includes("reasoning")) return "reasoning";
+      if (lower.includes("mini") || lower.includes("flash") || lower.includes("haiku") || lower.includes("fast")) return "speed";
       return "flagship";
     };
 
@@ -610,26 +989,59 @@ export function OfficeSimulation({
       }
     };
 
-    // Sort to ensure Antigravity (gemini-3.8-flash-high) is ALWAYS first at BAY 1A
-    const sorted = [...models].sort((a, b) => {
-      const aLower = a.internal_name.toLowerCase();
-      const bLower = b.internal_name.toLowerCase();
-      const aIsAg = aLower.includes("gemini-3.8-flash-high") || aLower.includes("antigravity");
-      const bIsAg = bLower.includes("gemini-3.8-flash-high") || bLower.includes("antigravity");
-      if (aIsAg && !bIsAg) return -1;
-      if (!aIsAg && bIsAg) return 1;
-      return 0;
-    });
+    // Multi-Provider Diversification Algorithm (Representing Full 9Router Armada)
+    const targetProviders = ["ag", "kr", "groq", "ds", "nvidia", "glm", "gemini", "cf", "mimo", "openrouter", "oc"];
+    const providerGroups: Record<string, ModelRegistryItem[]> = {};
 
-    const agModel = sorted.find((m) => m.internal_name.toLowerCase().includes("gemini-3.8-flash-high"));
-    const finalModelsList: ModelRegistryItem[] = [];
-
-    if (agModel) {
-      finalModelsList.push(agModel);
-      sorted.filter((m) => m.id !== agModel.id).forEach((m) => finalModelsList.push(m));
-    } else {
-      finalModelsList.push(...sorted);
+    for (const m of models) {
+      const p = m.internal_name.includes("/") ? m.internal_name.split("/")[0] : "other";
+      if (!providerGroups[p]) providerGroups[p] = [];
+      providerGroups[p].push(m);
     }
+
+    const diverseSelection: ModelRegistryItem[] = [];
+
+    // Slot 1: Primary Antigravity Gemini 3.8 Flash High
+    const agFlash = (providerGroups["ag"] || []).find((m) => m.internal_name.includes("gemini-3.8-flash-high"));
+    if (agFlash) diverseSelection.push(agFlash);
+
+    // Pick top representative model from each provider
+    for (const p of targetProviders) {
+      if (diverseSelection.length >= cubicleSlots.length) break;
+      const list = providerGroups[p] || [];
+      const candidate =
+        list.find((m) => {
+          const lower = m.internal_name.toLowerCase();
+          return (
+            m.id !== agFlash?.id &&
+            !diverseSelection.some((s) => s.id === m.id) &&
+            (lower.includes("sonnet") ||
+              lower.includes("llama-3.3") ||
+              lower.includes("deepseek") ||
+              lower.includes("glm") ||
+              lower.includes("flash") ||
+              lower.includes("pro") ||
+              lower.includes("opus") ||
+              lower.includes("m2") ||
+              lower.includes("m3") ||
+              lower.includes("auto"))
+          );
+        }) || list.find((m) => m.id !== agFlash?.id && !diverseSelection.some((s) => s.id === m.id));
+
+      if (candidate) {
+        diverseSelection.push(candidate);
+      }
+    }
+
+    // Fill remaining slots with any unused models from the registry
+    for (const m of models) {
+      if (diverseSelection.length >= cubicleSlots.length) break;
+      if (!diverseSelection.some((s) => s.id === m.id)) {
+        diverseSelection.push(m);
+      }
+    }
+
+    const finalModelsList = diverseSelection;
 
     if (finalModelsList.length === 0) {
       return cubicleSlots.map((slot, idx) => ({
@@ -678,6 +1090,83 @@ export function OfficeSimulation({
     });
   }, [models, hasRealModels]);
 
+  // Combined Workstation PCs with Custom User Overrides & Dynamic Ingress Hot-Swaps
+  const workstationPCs = useMemo<ModelWorkstationPC[]>(() => {
+    const formatCustomPrice = (cat: string, type: "in" | "out") => {
+      if (cat === "reasoning") return type === "in" ? "$0.55" : "$2.19";
+      if (cat === "coding") return type === "in" ? "$0.30" : "$1.20";
+      if (cat === "speed") return type === "in" ? "$0.08" : "$0.30";
+      return type === "in" ? "$0.15" : "$0.60";
+    };
+
+    const getCategory = (name: string): ModelWorkstationPC["category"] => {
+      const lower = name.toLowerCase();
+      if (lower.includes("coder") || lower.includes("deepseek") || lower.includes("claude") || lower.includes("qwen")) return "coding";
+      if (lower.includes("o1") || lower.includes("glm") || lower.includes("gpt-4o") || lower.includes("thinking") || lower.includes("reasoning") || lower.includes("r1")) return "reasoning";
+      if (lower.includes("mini") || lower.includes("flash") || lower.includes("haiku") || lower.includes("fast")) return "speed";
+      return "flagship";
+    };
+
+    const getGlow = (cat: ModelWorkstationPC["category"]): string => {
+      switch (cat) {
+        case "coding":
+          return "#38BDF8";
+        case "reasoning":
+          return "#A855F7";
+        case "speed":
+          return "#34D399";
+        case "flagship":
+          return "#FB923C";
+        default:
+          return "#FFB71B";
+      }
+    };
+
+    return baseWorkstationPCs.map((pc) => {
+      // 1. Explicit Custom Assignment by User
+      if (customDesks[pc.id]) {
+        const customModel = customDesks[pc.id].modelId;
+        const cat = getCategory(customModel);
+        const shortName = customModel.includes("/") ? customModel.split("/").pop()! : customModel;
+        return {
+          ...pc,
+          modelId: customModel,
+          internalName: customModel,
+          category: cat,
+          status: "online" as const,
+          screenGlow: getGlow(cat),
+          deskLabel: `${pc.deskLabel.split(" ")[0]} (${shortName.slice(0, 10).toUpperCase()})`,
+          adapter: customModel.includes("/") ? customModel.split("/")[0] : "custom",
+          inputPrice: formatCustomPrice(cat, "in"),
+          outputPrice: formatCustomPrice(cat, "out"),
+          capabilities: ["Custom Assigned", "Active", "Dynamic Ingress"],
+        };
+      }
+
+      // 2. Dynamic Hot-Swap from Live Ingress Traffic
+      if (hotSwappedDesks[pc.id]) {
+        const hotModel = hotSwappedDesks[pc.id].modelId;
+        const cat = getCategory(hotModel);
+        const shortName = hotModel.includes("/") ? hotModel.split("/").pop()! : hotModel;
+        return {
+          ...pc,
+          modelId: hotModel,
+          internalName: hotModel,
+          category: cat,
+          status: "online" as const,
+          screenGlow: getGlow(cat),
+          deskLabel: `${pc.deskLabel.split(" ")[0]} (${shortName.slice(0, 10).toUpperCase()})`,
+          adapter: hotModel.includes("/") ? hotModel.split("/")[0] : "dynamic-router",
+          inputPrice: formatCustomPrice(cat, "in"),
+          outputPrice: formatCustomPrice(cat, "out"),
+          capabilities: ["Hot-Swapped", "Live Ingress", "Streaming"],
+        };
+      }
+
+      return pc;
+    });
+  }, [baseWorkstationPCs, customDesks, hotSwappedDesks]);
+
   const fallbackPc: ModelWorkstationPC = useMemo(
     () => ({
       id: "pc-0",
@@ -700,10 +1189,40 @@ export function OfficeSimulation({
     []
   );
 
-  const selectedPc: ModelWorkstationPC =
-    (workstationPCs && workstationPCs.length > 0
-      ? workstationPCs.find((w) => w.id === selectedPcId) || workstationPCs[0]
-      : fallbackPc) || fallbackPc;
+  const selectedPc: ModelWorkstationPC | null =
+    selectedObjectId
+      ? null
+      : ((workstationPCs && workstationPCs.length > 0
+          ? workstationPCs.find((w) => w.id === selectedPcId) || workstationPCs[0]
+          : fallbackPc) || fallbackPc);
+
+  const selectedProp = INTERACTIVE_PROPS.find((p) => p.id === selectedObjectId);
+
+  const handleTriggerPropAction = (prop: InteractiveProp, action: InteractivePropAction) => {
+    setAgents((prev) =>
+      prev.map((a) => {
+        if (a.id === selectedAgent.id) {
+          return {
+            ...a,
+            targetGx: prop.gx,
+            targetGy: prop.gy,
+            targetPcId: undefined,
+            state: action.agentState,
+            currentActivity: action.activity,
+            currentRoom: prop.room,
+            dialogue: {
+              agentId: a.id,
+              agentRole: a.role,
+              modelName: prop.name,
+              reasonText: action.dialogueText,
+              ticksRemaining: 110,
+            },
+          };
+        }
+        return a;
+      })
+    );
+  };
 
   // -------------------------------------------------------------------
   // 2. Autonomous Agents State (1-to-1 Coupling with Database Roles)
@@ -825,72 +1344,325 @@ export function OfficeSimulation({
     [language]
   );
 
-  // Dispatch real-time live traffic event to NPCs
-  useEffect(() => {
-    if (!liveTraffic || !liveTraffic.recent_requests.length || !agents.length) return;
-    const latest = liveTraffic.recent_requests[0];
-    if (latest.id === lastHandledEventId) return;
+  // Single Ingress Event Handler (PRD v2.0: Event-driven via SSE)
+  const handleLiveIngress = useCallback(
+    (latest: any) => {
+      if (!latest || !agents.length) return;
+      if (latest.id === lastHandledEventId) return;
 
-    setLastHandledEventId(latest.id);
+      setLastHandledEventId(latest.id);
 
-    // Alert toast
-    setIngressToast(
-      `⚡ LIVE INGRESS: ${latest.model} via ${latest.provider.toUpperCase()} (${latest.prompt_tokens} in / ${latest.completion_tokens} out)`
-    );
-    setTimeout(() => setIngressToast(null), 5000);
+      setIngressToast(
+        `⚡ LIVE INGRESS: ${latest.model} via ${(latest.provider || "9ROUTER").toUpperCase()} (${latest.prompt_tokens || 0} in / ${latest.completion_tokens || 0} out)`
+      );
+      setTimeout(() => setIngressToast(null), 5000);
 
-    // Find the workstation PC that hosts this model
-    let targetPc = workstationPCs.find(
-      (pc) =>
-        pc.modelId.toLowerCase() === latest.model.toLowerCase() ||
-        pc.internalName.toLowerCase() === latest.raw_model.toLowerCase() ||
-        (latest.provider === "antigravity" && pc.id === "pc-0")
-    );
-    if (!targetPc) {
-      targetPc = workstationPCs[0];
-    }
+      // Find the workstation PC that hosts this model
+      let targetPc = workstationPCs.find(
+        (pc) =>
+          pc.modelId.toLowerCase() === (latest.model || "").toLowerCase() ||
+          pc.internalName.toLowerCase() === (latest.raw_model || "").toLowerCase() ||
+          (latest.provider === "antigravity" && pc.id === "pc-0")
+      );
 
-    // Pick agent whose preferredModelId matches or who is currently relaxing/idle
-    let chosenAgent = agents.find(
-      (a) => a.preferredModelId && a.preferredModelId.toLowerCase().includes(latest.model.toLowerCase())
-    );
-    if (!chosenAgent) {
-      chosenAgent = agents.find((a) => a.state !== "walking" && a.state !== "using_pc") || agents[0];
-    }
+      // Dynamic Desk Hot-Swap
+      if (!targetPc) {
+        const busyPcIds = new Set(agents.filter((a) => a.state === "using_pc").map((a) => a.targetPcId));
+        const candidateDesks = workstationPCs.slice(1).filter((pc) => !busyPcIds.has(pc.id) && !customDesks[pc.id]);
+        const swapVictim = candidateDesks[0] || workstationPCs[1] || workstationPCs[0];
 
-    if (!chosenAgent) return;
-
-    const targetPcRef = targetPc;
-    const targetAgentId = chosenAgent.id;
-
-    setSelectedAgentId(targetAgentId);
-    setSelectedPcId(targetPcRef.id);
-
-    setAgents((prev) =>
-      prev.map((a) => {
-        if (a.id === targetAgentId) {
-          const rationale = generateRationale(a, targetPcRef, latest, language);
-          return {
-            ...a,
-            targetGx: targetPcRef.gx,
-            targetGy: targetPcRef.gy + 1,
-            targetPcId: targetPcRef.id,
-            state: "walking",
-            stateTicks: 0,
-            currentActivity: language === "en" ? `Processing request on ${targetPcRef.internalName}` : `Memproses request di ${targetPcRef.internalName}`,
-            dialogue: {
-              agentId: a.id,
-              agentRole: a.role,
-              modelName: targetPcRef.internalName,
-              reasonText: rationale,
-              ticksRemaining: 95,
-            },
+        if (swapVictim) {
+          setHotSwappedDesks((prev) => ({
+            ...prev,
+            [swapVictim.id]: { modelId: latest.model, timestamp: Date.now() },
+          }));
+          targetPc = {
+            ...swapVictim,
+            modelId: latest.model,
+            internalName: latest.model,
           };
+        } else {
+          targetPc = workstationPCs[0];
         }
-        return a;
-      })
-    );
-  }, [liveTraffic, lastHandledEventId, agents, workstationPCs, generateRationale, language]);
+      }
+
+      let chosenAgent = agents.find(
+        (a) => a.preferredModelId && a.preferredModelId.toLowerCase().includes((latest.model || "").toLowerCase())
+      );
+      if (!chosenAgent) {
+        chosenAgent = agents.find((a) => a.state !== "walking" && a.state !== "using_pc") || agents[0];
+      }
+
+      if (!chosenAgent) return;
+
+      const targetPcRef = targetPc;
+      const targetAgentId = chosenAgent.id;
+
+      setSelectedAgentId(targetAgentId);
+      setSelectedPcId(targetPcRef.id);
+
+      setAgents((prev) =>
+        prev.map((a) => {
+          if (a.id === targetAgentId) {
+            const rationale = generateRationale(a, targetPcRef, latest, language);
+            return {
+              ...a,
+              targetGx: targetPcRef.gx,
+              targetGy: targetPcRef.gy + 1,
+              targetPcId: targetPcRef.id,
+              state: "walking",
+              stateTicks: 0,
+              currentActivity: language === "en" ? `Processing request on ${targetPcRef.internalName}` : `Memproses request di ${targetPcRef.internalName}`,
+              dialogue: {
+                agentId: a.id,
+                agentRole: a.role,
+                modelName: targetPcRef.internalName,
+                reasonText: rationale,
+                ticksRemaining: 120,
+              },
+            };
+          }
+          return a;
+        })
+      );
+    },
+    [agents, workstationPCs, customDesks, lastHandledEventId, generateRationale, language]
+  );
+
+  // Multi-Agent Pipeline Telemetry Handler (PRD 5.2 & 5.3)
+  const handleAgentCoordination = useCallback(
+    (data: any) => {
+      if (!data) return;
+
+      if (data.type === "PIPELINE_INIT") {
+        setPipelineHud({
+          pipelineId: data.pipelineId,
+          title: data.title || "Multi-Agent Pipeline",
+          status: "RUNNING",
+          stepIndex: 0,
+          totalSteps: data.totalSteps || 3,
+          stepTitle: "Memulai DAG Pipeline...",
+          stepProgress: data.stepProgress || `0/${data.totalSteps || 3}`,
+          dialogue: data.dialogue,
+          stepsHistory: Array.from({ length: data.totalSteps || 3 }).map((_, idx) => ({
+            title: `Step ${idx + 1}`,
+            roleName: idx === 0 ? "Systems Architect" : (idx === 1 ? "Academic Specialist" : "Security Auditor"),
+            status: idx === 0 ? "IN_PROGRESS" : "PENDING",
+          })),
+        });
+
+        setIngressToast(`⚡ ${data.dialogue}`);
+        setTimeout(() => setIngressToast(null), 5000);
+      }
+
+      if (data.type === "HANDOFF_TRANSFER") {
+        const fromRole = data.fromAgent?.roleId || "";
+        const toRole = data.toAgent?.roleId || "";
+        const toCoord = data.toAgent?.deskCoord || [18, 2];
+
+        setPipelineHud((prev) => {
+          if (!prev) return prev;
+          const updatedSteps = [...prev.stepsHistory];
+          if (updatedSteps[data.stepIndex]) {
+            updatedSteps[data.stepIndex] = {
+              ...updatedSteps[data.stepIndex],
+              title: data.stepTitle || updatedSteps[data.stepIndex].title,
+              roleName: data.toAgent?.roleName || updatedSteps[data.stepIndex].roleName,
+              status: "IN_PROGRESS",
+            };
+          }
+          return {
+            ...prev,
+            stepIndex: data.stepIndex || 0,
+            stepTitle: data.stepTitle || prev.stepTitle,
+            stepProgress: data.stepProgress || prev.stepProgress,
+            dialogue: data.dialogue,
+            activeRole: data.toAgent?.roleName,
+            stepsHistory: updatedSteps,
+          };
+        });
+
+        setIngressToast(`🤝 HANDOFF: ${data.fromAgent?.roleName || "Lead"} ➔ ${data.toAgent?.roleName || "Specialist"}`);
+        setTimeout(() => setIngressToast(null), 6000);
+
+        setAgents((prevAgents) => {
+          const sender = prevAgents.find((a) => a.role === data.fromAgent?.roleName || a.id.includes(fromRole));
+          const receiver = prevAgents.find((a) => a.role === data.toAgent?.roleName || a.id.includes(toRole)) || prevAgents[0];
+
+          return prevAgents.map((a) => {
+            if (sender && a.id === sender.id) {
+              return {
+                ...a,
+                targetGx: toCoord[0] - 1,
+                targetGy: toCoord[1] + 1,
+                state: "walking" as const,
+                stateTicks: 0,
+                currentActivity: `Handoff ke ${data.toAgent?.roleName}`,
+                dialogue: {
+                  agentId: a.id,
+                  agentRole: a.role,
+                  modelName: "Handoff Packet",
+                  reasonText: data.dialogue,
+                  ticksRemaining: 140,
+                },
+              };
+            }
+            if (receiver && a.id === receiver.id) {
+              return {
+                ...a,
+                targetGx: toCoord[0],
+                targetGy: toCoord[1] + 1,
+                state: "walking" as const,
+                stateTicks: 0,
+                currentActivity: `Menerima tugas: ${data.stepTitle}`,
+              };
+            }
+            return a;
+          });
+        });
+      }
+
+      if (data.type === "COMPUTING") {
+        const targetDeskCoord = data.agent?.deskCoord || [18, 2];
+        const targetRoleName = data.agent?.roleName;
+
+        const matchingPc = workstationPCs.find(
+          (pc) => Math.hypot(pc.gx - targetDeskCoord[0], pc.gy - targetDeskCoord[1]) < 2.5
+        ) || workstationPCs[0];
+
+        if (matchingPc) {
+          setSelectedPcId(matchingPc.id);
+        }
+
+        setAgents((prevAgents) => {
+          const targetAgent = prevAgents.find((a) => a.role === targetRoleName) || prevAgents[0];
+          if (!targetAgent) return prevAgents;
+          setSelectedAgentId(targetAgent.id);
+
+          return prevAgents.map((a) => {
+            if (a.id === targetAgent.id) {
+              return {
+                ...a,
+                gx: targetDeskCoord[0],
+                gy: targetDeskCoord[1] + 1,
+                targetGx: targetDeskCoord[0],
+                targetGy: targetDeskCoord[1] + 1,
+                targetPcId: matchingPc ? matchingPc.id : undefined,
+                state: "using_pc" as const,
+                stateTicks: 0,
+                currentRoom: "workstations",
+                currentActivity: `Memproses ${data.stepTitle || "Step"} via ${data.model}`,
+                dialogue: {
+                  agentId: a.id,
+                  agentRole: a.role,
+                  modelName: data.model || matchingPc.internalName,
+                  reasonText: data.dialogue || `Mengeksekusi inferensi pada ${data.model}...`,
+                  ticksRemaining: 180,
+                },
+              };
+            }
+            return a;
+          });
+        });
+      }
+
+      if (data.type === "STEP_COMPLETED") {
+        setPipelineHud((prev) => {
+          if (!prev) return prev;
+          const updatedSteps = [...prev.stepsHistory];
+          if (updatedSteps[data.stepIndex]) {
+            updatedSteps[data.stepIndex] = {
+              ...updatedSteps[data.stepIndex],
+              status: "DONE",
+              durationMs: data.durationMs,
+              tokens: data.tokens,
+              outputPreview: data.outputPreview,
+            };
+          }
+          return {
+            ...prev,
+            stepsHistory: updatedSteps,
+          };
+        });
+
+        setIngressToast(`✓ Step ${data.stepIndex + 1} Selesai (${data.durationMs}ms, ${data.tokens} tok)`);
+        setTimeout(() => setIngressToast(null), 4000);
+      }
+
+      if (data.type === "PIPELINE_COMPLETED") {
+        setPipelineHud((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            status: "COMPLETED",
+            dialogue: data.dialogue,
+            stepsHistory: prev.stepsHistory.map((s) => ({ ...s, status: "DONE" })),
+          };
+        });
+
+        setIngressToast(`🎉 ${data.dialogue || "DAG PIPELINE BERHASIL 100%!"}`);
+        setTimeout(() => setIngressToast(null), 8000);
+      }
+    },
+    [workstationPCs]
+  );
+
+  // Connect Real-Time SSE Stream (PRD 5.2)
+  useEffect(() => {
+    let es: EventSource | null = null;
+    let reconnectTimer: any = null;
+
+    const connect = () => {
+      try {
+        es = new EventSource("/api/v1/events/stream");
+
+        es.addEventListener("AGENT_COORDINATION", (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            handleAgentCoordination(data);
+          } catch {}
+        });
+
+        es.addEventListener("REQUEST_DISPATCH", (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            handleLiveIngress(data);
+          } catch {}
+        });
+
+        es.onerror = () => {
+          if (es) es.close();
+          reconnectTimer = setTimeout(connect, 3000);
+        };
+      } catch {
+        reconnectTimer = setTimeout(connect, 3000);
+      }
+    };
+
+    connect();
+
+    return () => {
+      if (es) es.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+    };
+  }, [handleAgentCoordination, handleLiveIngress]);
+
+  // Dispatch Multi-Agent Pipeline Task to Fastify Core Runner
+  const handleDispatchPipeline = async () => {
+    setIsDispatchingPipeline(true);
+    setIngressToast(language === "en" ? "⚡ Initializing Multi-Agent Pipeline..." : "⚡ Menginisiasi Pipeline Multi-Agen...");
+    try {
+      await api.dispatchPipeline({
+        goal: "Rancang arsitektur sistem terdistribusi, pemodelan 4 UML, dan spesifikasi teknis.",
+        title: "Orkestrasi Arsitektur & Spesifikasi Sistem",
+      });
+    } catch (err: any) {
+      setIngressToast(`❌ Dispatch Error: ${err.message}`);
+      setTimeout(() => setIngressToast(null), 5000);
+    } finally {
+      setIsDispatchingPipeline(false);
+    }
+  };
 
   // Handler for manual Test Ingress to Antigravity
   const handleSendTestToAntigravity = async () => {
@@ -1029,7 +1801,7 @@ export function OfficeSimulation({
           // Case B: USING WORKSTATION PC
           if (agent.state === "using_pc") {
             const ticks = agent.stateTicks + 1;
-            if (ticks > 80) {
+            if (ticks > 140) {
               const nextDest = RELAXATION_SPOTS[Math.floor(Math.random() * RELAXATION_SPOTS.length)];
 
               return {
@@ -1054,13 +1826,36 @@ export function OfficeSimulation({
             return { ...agent, stateTicks: ticks, dialogue: currentDialogue };
           }
 
-          // Case C: IDLE IN ROOM (SANTAI)
+          // Case C: IDLE IN ROOM (SANTAI / ROUTINE WORK)
           const newTicks = agent.stateTicks + 1;
           const maxStay = 130 + ((agent.name.charCodeAt(0) || 10) % 50);
 
           if (newTicks > maxStay) {
-            // Roam between RELAXATION spots when idle.
-            // NEVER jump to workstation PCs unless real ingress arrives!
+            // During Day Shift: 35% chance to do routine engineering / audit work at workstation PC
+            const shouldWorkRoutine = Math.random() < 0.35 && workstationPCs.length > 0;
+            if (shouldWorkRoutine) {
+              const myPreferredPc = workstationPCs.find(
+                (pc) => agent.preferredModelId && agent.preferredModelId.toLowerCase().includes(pc.modelId.toLowerCase())
+              ) || workstationPCs[Math.floor(Math.random() * workstationPCs.length)];
+
+              if (myPreferredPc && myPreferredPc.status === "online") {
+                const routineActivity = language === "en"
+                  ? `Routine checks & maintenance on ${myPreferredPc.internalName}`
+                  : `Pemeriksaan rutin & coding di ${myPreferredPc.internalName}`;
+                return {
+                  ...agent,
+                  targetGx: myPreferredPc.gx,
+                  targetGy: myPreferredPc.gy + 1,
+                  targetPcId: myPreferredPc.id,
+                  state: "walking",
+                  stateTicks: 0,
+                  currentActivity: routineActivity,
+                  dialogue: undefined,
+                };
+              }
+            }
+
+            // Otherwise roam to relaxation spots
             const spots = RELAXATION_SPOTS.filter(
               (s) => Math.hypot(s.gx - agent.gx, s.gy - agent.gy) > 2
             );
@@ -1147,14 +1942,16 @@ export function OfficeSimulation({
     const originY = 85;
 
     // -----------------------------------------------------------------
-    // A. Outer Perimeter Back Walls (Architectural Enclosure)
+    // A. Outer Perimeter Building Walls (Indoor Enclosure: gy <= 13.5)
     // -----------------------------------------------------------------
-    const wallH = 74;
+    const wallH = 68;
     const topPt = toIso(0, 0, originX, originY);
     const rightPt = toIso(GRID_COLS, 0, originX, originY);
     const leftPt = toIso(0, GRID_ROWS, originX, originY);
+    const bldgLeftPt = toIso(0, 13.5, originX, originY);
+    const bldgRightPt = toIso(GRID_COLS, 13.5, originX, originY);
 
-    // North-West Wall (Facing South-East)
+    // North-West Wall (Facing South-East) - Across the entire back from top to right
     ctx.fillStyle = isDark ? "#1C2434" : "#D4C7B0";
     ctx.beginPath();
     ctx.moveTo(topPt.x, topPt.y);
@@ -1167,12 +1964,12 @@ export function OfficeSimulation({
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // South-West Wall (Facing North-East)
+    // South-West Wall (Facing North-East) - Only down to the building front (gy = 13.5)
     ctx.fillStyle = isDark ? "#151C2A" : "#C4B59D";
     ctx.beginPath();
     ctx.moveTo(topPt.x, topPt.y);
-    ctx.lineTo(leftPt.x, leftPt.y);
-    ctx.lineTo(leftPt.x, leftPt.y - wallH);
+    ctx.lineTo(bldgLeftPt.x, bldgLeftPt.y);
+    ctx.lineTo(bldgLeftPt.x, bldgLeftPt.y - wallH);
     ctx.lineTo(topPt.x, topPt.y - wallH);
     ctx.closePath();
     ctx.fill();
@@ -1191,17 +1988,17 @@ export function OfficeSimulation({
     ctx.strokeStyle = isDark ? "#38BDF8" : "#1D4ED8";
     ctx.beginPath();
     ctx.moveTo(topPt.x, topPt.y - wallH);
-    ctx.lineTo(leftPt.x, leftPt.y - wallH);
+    ctx.lineTo(bldgLeftPt.x, bldgLeftPt.y - wallH);
     ctx.stroke();
 
-    // Master Signage Banner
+    // Master Signage Banner on Back Wall
     ctx.fillStyle = isDark ? "#FFB71B" : "#B45309";
     ctx.font = "bold 11px 'Silkscreen', monospace";
     ctx.textAlign = "center";
-    ctx.fillText("⚡ THEGATE AI OPERATIONS HEADQUARTERS — MASTER FLOORPLAN", topPt.x + 160, topPt.y - wallH + 26);
+    ctx.fillText("⚡ THEGATE AI URBAN TECH HEADQUARTERS & RESORT (THE SIMS EDITION)", topPt.x + 160, topPt.y - wallH + 26);
 
     // -----------------------------------------------------------------
-    // B. Floor Foundation & Tile Textures (High-Contrast Illuminated Rooms)
+    // B. Floor Foundation & Tile Textures (Indoor Office vs Outdoor Front Yard)
     // -----------------------------------------------------------------
     const defaultHallA = isDark ? "#1B2230" : "#FAF4E8";
     const defaultHallB = isDark ? "#161D2A" : "#F4ECE0";
@@ -1211,13 +2008,49 @@ export function OfficeSimulation({
         const pt = toIso(gx, gy, originX, originY);
         const isAlt = (gx + gy) % 2 === 0;
 
+        // OUTDOOR FRONT YARD (gy >= 14) vs INDOOR OFFICE (gy < 14)
+        const isOutdoor = gy >= 14;
+
+        // 1. City Street & Sidewalk at the front perimeter
+        const isCityStreet = gy >= 21;
+        // 2. Grand Entrance Paved Flagstone Walkway (leading to front doors)
+        const isMainWalkway = isOutdoor && !isCityStreet && gx >= 12 && gx <= 15;
+        // 3. Luxury Resort Swimming Pool (Front Right)
+        const isPoolWater = isOutdoor && !isCityStreet && gx >= 18 && gx <= 26 && gy >= 16 && gy <= 20;
+        // 4. Travertine Stone Pool Deck
+        const isPoolDeck = isOutdoor && !isCityStreet && gx >= 16 && gx <= 27 && !isPoolWater && !isMainWalkway;
+        // 5. Lush Green Tropical Garden Lawn (Front Left)
+        const isGardenGrass = isOutdoor && !isCityStreet && gx < 12;
+
         let tileColor = isAlt ? defaultHallA : defaultHallB;
-        for (const zone of ROOM_ZONES) {
-          if (gx >= zone.x1 && gx <= zone.x2 && gy >= zone.y1 && gy <= zone.y2) {
-            tileColor = isDark
-              ? (isAlt ? zone.darkFloorA : zone.darkFloorB)
-              : (isAlt ? zone.lightFloorA : zone.lightFloorB);
-            break;
+
+        if (isCityStreet) {
+          tileColor = isAlt ? "#1E293B" : "#0F172A";
+        } else if (isPoolWater) {
+          tileColor = isDark
+            ? (isAlt ? "#0284C7" : "#0369A1")
+            : (isAlt ? "#38BDF8" : "#0EA5E9");
+        } else if (isPoolDeck) {
+          tileColor = isDark
+            ? (isAlt ? "#334155" : "#1E293B")
+            : (isAlt ? "#F8FAFC" : "#E2E8F0");
+        } else if (isMainWalkway) {
+          tileColor = isDark
+            ? (isAlt ? "#475569" : "#334155")
+            : (isAlt ? "#E2E8F0" : "#CBD5E1");
+        } else if (isGardenGrass) {
+          tileColor = isDark
+            ? (isAlt ? "#15803D" : "#166534")
+            : (isAlt ? "#22C55E" : "#16A34A");
+        } else {
+          // Indoor Rooms
+          for (const zone of ROOM_ZONES) {
+            if (gx >= zone.x1 && gx <= zone.x2 && gy >= zone.y1 && gy <= zone.y2) {
+              tileColor = isDark
+                ? (isAlt ? zone.darkFloorA : zone.darkFloorB)
+                : (isAlt ? zone.lightFloorA : zone.lightFloorB);
+              break;
+            }
           }
         }
 
@@ -1230,9 +2063,41 @@ export function OfficeSimulation({
         ctx.closePath();
         ctx.fill();
 
-        ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(61, 49, 38, 0.12)";
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
+        // Shimmering Pool Waves
+        if (isPoolWater) {
+          const waveShift = ((animationTick * 0.35) + gx * 2 + gy * 3) % 8;
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(pt.x - 7, pt.y + 11 + (waveShift > 4 ? 1 : -1));
+          ctx.lineTo(pt.x + 7, pt.y + 11 + (waveShift > 4 ? -1 : 1));
+          ctx.stroke();
+        } else if (isGardenGrass) {
+          // Scattered Pixel Garden Flowers
+          if ((gx * 7 + gy * 13) % 4 === 0) {
+            ctx.fillStyle = (gx + gy) % 2 === 0 ? "#EF4444" : "#FACC15";
+            ctx.fillRect(pt.x - 2, pt.y + 9, 3, 3);
+          } else if ((gx * 11 + gy * 3) % 6 === 0) {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(pt.x + 1, pt.y + 8, 2, 2);
+          }
+          ctx.strokeStyle = isDark ? "rgba(20, 83, 45, 0.4)" : "rgba(22, 101, 52, 0.3)";
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        } else if (isCityStreet) {
+          // Yellow dashed road center divider
+          if (gx % 3 === 0 && gy === 21) {
+            ctx.fillStyle = "#FACC15";
+            ctx.fillRect(pt.x - 4, pt.y + 10, 8, 2);
+          }
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(61, 49, 38, 0.12)";
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
       }
     }
 
@@ -1272,7 +2137,7 @@ export function OfficeSimulation({
     ctx.stroke();
 
     // -----------------------------------------------------------------
-    // D. True Solid 3D Partition Walls (Bilik-Bilik Pembatas Berdimensi)
+    // D. True Solid 3D Partition Walls Inside the Building (gy <= 13)
     // -----------------------------------------------------------------
     const drawSolid3DWall = (
       gx1: number,
@@ -1280,7 +2145,7 @@ export function OfficeSimulation({
       gx2: number,
       gy2: number,
       orientation: "x" | "y",
-      height: number = 32,
+      height: number = 28,
       accentColor: string = "#FFB71B"
     ) => {
       const thickness = 0.28;
@@ -1349,33 +2214,83 @@ export function OfficeSimulation({
       ctx.stroke();
     };
 
-    // Partition 1: Server Vault (Room 02) & Boardroom (Room 05) - Along X-axis
-    drawSolid3DWall(1, 6.5, 4.2, 6.5, "x", 32, "#00E5FF");
-    drawSolid3DWall(5.6, 6.5, 7.5, 6.5, "x", 32, "#00E5FF");
+    // Partition 1: Server Vault (Room 02) & Boardroom (Room 05) - Along X at gy = 5.5
+    drawSolid3DWall(1, 5.5, 4.2, 5.5, "x", 28, "#00E5FF");
+    drawSolid3DWall(5.5, 5.5, 7.5, 5.5, "x", 28, "#00E5FF");
 
-    // Partition 2: Server Vault & Director Suite (Room 03) - Along Y-axis
-    drawSolid3DWall(7.5, 1, 7.5, 3.2, "y", 32, "#38BDF8");
-    drawSolid3DWall(7.5, 4.6, 7.5, 6.5, "y", 32, "#38BDF8");
+    // Partition 2: Server Vault & Director Suite (Room 03) - Along Y at gx = 7.5
+    drawSolid3DWall(7.5, 1, 7.5, 3.2, "y", 28, "#38BDF8");
+    drawSolid3DWall(7.5, 4.5, 7.5, 5.5, "y", 28, "#38BDF8");
 
-    // Partition 3: Director Suite & AI Workstations (Room 04) - Along Y-axis
-    drawSolid3DWall(15.5, 1, 15.5, 3.5, "y", 32, "#F59E0B");
-    drawSolid3DWall(15.5, 5.0, 15.5, 6.5, "y", 32, "#F59E0B");
+    // Partition 3: Director Suite & AI Workstations (Room 04) - Along Y at gx = 15.5
+    drawSolid3DWall(15.5, 1, 15.5, 3.2, "y", 28, "#F59E0B");
+    drawSolid3DWall(15.5, 4.5, 15.5, 5.5, "y", 28, "#F59E0B");
 
-    // Partition 4: Boardroom (Room 05) & Lobby (Room 01) - Along X-axis
-    drawSolid3DWall(1, 14.5, 4.2, 14.5, "x", 32, "#C084FC");
-    drawSolid3DWall(5.6, 14.5, 7.5, 14.5, "x", 32, "#C084FC");
+    // Partition 4: Boardroom (Room 05) & Bistro (Room 07) - Along X at gy = 9.5
+    drawSolid3DWall(1, 9.5, 4.5, 9.5, "x", 28, "#C084FC");
+    drawSolid3DWall(6.0, 9.5, 9.5, 9.5, "x", 28, "#C084FC");
 
-    // Partition 5: Focus Pods (Room 06) & Pantry (Room 07) - Along X-axis
-    drawSolid3DWall(8, 10.5, 11.2, 10.5, "x", 32, "#60A5FA");
-    drawSolid3DWall(12.6, 10.5, 15.5, 10.5, "x", 32, "#60A5FA");
+    // Partition 5: Boardroom/Bistro & Focus Pods/Lobby along Y at gx = 9.5
+    drawSolid3DWall(9.5, 6, 9.5, 7.8, "y", 28, "#60A5FA");
+    drawSolid3DWall(9.5, 11, 9.5, 13.5, "y", 28, "#FB923C");
 
-    // Partition 6: AI Workstations (Room 04) & Recreation/Gym (Room 08) - Along X-axis
-    drawSolid3DWall(17.5, 10.5, 22.0, 10.5, "x", 30, "#34D399");
-    drawSolid3DWall(23.8, 10.5, 27.5, 10.5, "x", 30, "#34D399");
+    // Partition 6: Focus Pods & Workstations along Y at gx = 15.5
+    drawSolid3DWall(15.5, 6, 15.5, 8.5, "y", 28, "#60A5FA");
 
-    // Partition 7: Pantry (Room 07) & Recreation (Room 08) - Along Y-axis
-    drawSolid3DWall(17.5, 11.5, 17.5, 15.0, "y", 30, "#FB923C");
-    drawSolid3DWall(17.5, 16.5, 17.5, 19.5, "y", 30, "#FB923C");
+    // Partition 7: Lobby & Workstations along Y at gx = 15.5
+    drawSolid3DWall(15.5, 9.5, 15.5, 11.2, "y", 28, "#34D399");
+
+    // Building Front Glass Facade at gy = 13.8 (Separating Inside from Front Yard)
+    const facadeH = 34;
+    const drawGlassFacade = (x1: number, x2: number) => {
+      const p1 = toIso(x1, 13.8, originX, originY);
+      const p2 = toIso(x2, 13.8, originX, originY);
+
+      ctx.fillStyle = isDark ? "rgba(30, 58, 138, 0.4)" : "rgba(186, 230, 253, 0.4)";
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineTo(p2.x, p2.y - facadeH);
+      ctx.lineTo(p1.x, p1.y - facadeH);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = isDark ? "#38BDF8" : "#0284C7";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const panes = Math.floor((x2 - x1) * 1.5);
+      for (let i = 1; i < panes; i++) {
+        const fx = x1 + (x2 - x1) * (i / panes);
+        const pt = toIso(fx, 13.8, originX, originY);
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y);
+        ctx.lineTo(pt.x, pt.y - facadeH);
+        ctx.stroke();
+      }
+    };
+
+    drawGlassFacade(0.5, 12.0);
+    drawGlassFacade(15.0, 27.5);
+
+    // Automatic Sliding Glass Entrance Door at gx: 12.0 .. 15.0
+    const doorCenter = toIso(13.5, 13.8, originX, originY);
+    ctx.strokeStyle = "#38BDF8";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(doorCenter.x - 22, doorCenter.y - 32, 44, 32);
+    ctx.fillStyle = isDark ? "#FFB71B" : "#B45309";
+    ctx.fillRect(doorCenter.x - 18, doorCenter.y - 2, 36, 4);
+
+    // Entrance Marquee Sign
+    ctx.fillStyle = isDark ? "#0F172A" : "#FFFFFF";
+    ctx.fillRect(doorCenter.x - 46, doorCenter.y - 44, 92, 11);
+    ctx.strokeStyle = isDark ? "#38BDF8" : "#0284C7";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(doorCenter.x - 46, doorCenter.y - 44, 92, 11);
+    ctx.fillStyle = isDark ? "#38BDF8" : "#0369A1";
+    ctx.font = "bold 6px 'Silkscreen', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("🏢 THEGATE TECH HEADQUARTERS", doorCenter.x, doorCenter.y - 36);
 
     // Doorway floor threshold plates
     const drawDoorThreshold = (gx: number, gy: number, color: string) => {
@@ -1393,13 +2308,72 @@ export function OfficeSimulation({
       ctx.stroke();
     };
 
-    drawDoorThreshold(5, 6, isDark ? "#00E5FF" : "#1D4ED8");
-    drawDoorThreshold(7, 4, isDark ? "#38BDF8" : "#0284C7");
-    drawDoorThreshold(15, 4, isDark ? "#F59E0B" : "#D97706");
-    drawDoorThreshold(5, 14, isDark ? "#C084FC" : "#7C3AED");
-    drawDoorThreshold(12, 10, isDark ? "#60A5FA" : "#2563EB");
-    drawDoorThreshold(23, 10, isDark ? "#34D399" : "#059669");
-    drawDoorThreshold(17, 16, isDark ? "#FB923C" : "#EA580C");
+    drawDoorThreshold(5, 5, isDark ? "#00E5FF" : "#1D4ED8");
+    drawDoorThreshold(7.5, 4, isDark ? "#38BDF8" : "#0284C7");
+    drawDoorThreshold(15.5, 4, isDark ? "#F59E0B" : "#D97706");
+    drawDoorThreshold(6, 9.5, isDark ? "#C084FC" : "#7C3AED");
+    drawDoorThreshold(12, 9.5, isDark ? "#60A5FA" : "#2563EB");
+    drawDoorThreshold(15.5, 9, isDark ? "#34D399" : "#059669");
+    drawDoorThreshold(13.5, 14, isDark ? "#FFB71B" : "#B45309");
+
+    // The Sims Urban Estate Perimeter Wrought-Iron Fence with Brick Pillars
+    const drawFence = (x1: number, x2: number, gy: number) => {
+      const p1 = toIso(x1, gy, originX, originY);
+      const p2 = toIso(x2, gy, originX, originY);
+      const fH = 18;
+
+      ctx.strokeStyle = isDark ? "#64748B" : "#1E293B";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y - fH);
+      ctx.lineTo(p2.x, p2.y - fH);
+      ctx.moveTo(p1.x, p1.y - 3);
+      ctx.lineTo(p2.x, p2.y - 3);
+      ctx.stroke();
+
+      ctx.lineWidth = 1;
+      const count = Math.floor((x2 - x1) * 3);
+      for (let i = 0; i <= count; i++) {
+        const fx = x1 + (x2 - x1) * (i / count);
+        const pt = toIso(fx, gy, originX, originY);
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y);
+        ctx.lineTo(pt.x, pt.y - fH - (i % 2 === 0 ? 3 : 1));
+        ctx.stroke();
+      }
+    };
+
+    drawFence(0.5, 12.0, 21.5);
+    drawFence(15.0, 27.5, 21.5);
+
+    // Brick Pillars at regular posts
+    const pillarGXs = [0.5, 4.0, 8.0, 12.0, 15.0, 19.0, 23.0, 27.5];
+    pillarGXs.forEach((gx) => {
+      const pt = toIso(gx, 21.5, originX, originY);
+      const pilW = 8;
+      const pilH = 24;
+      ctx.fillStyle = isDark ? "#78350F" : "#B45309";
+      ctx.fillRect(pt.x - pilW / 2, pt.y - pilH, pilW, pilH);
+      ctx.strokeStyle = "#451A03";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pt.x - pilW / 2, pt.y - pilH, pilW, pilH);
+      ctx.fillStyle = isDark ? "#CBD5E1" : "#E2E8F0";
+      ctx.fillRect(pt.x - (pilW + 2) / 2, pt.y - pilH - 3, pilW + 2, 3);
+      ctx.fillStyle = "#FFB71B";
+      ctx.fillRect(pt.x - 1, pt.y - pilH - 6, 2, 3);
+    });
+
+    // Grand Entrance Security Gate & Arch
+    const gatePt = toIso(13.5, 21.5, originX, originY);
+    ctx.fillStyle = isDark ? "#0F172A" : "#FFFFFF";
+    ctx.fillRect(gatePt.x - 30, gatePt.y - 40, 60, 14);
+    ctx.strokeStyle = "#FFB71B";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(gatePt.x - 30, gatePt.y - 40, 60, 14);
+    ctx.fillStyle = "#FFB71B";
+    ctx.font = "bold 7px 'Silkscreen', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("⛩️ THEGATE ESTATE", gatePt.x, gatePt.y - 30);
 
     // -----------------------------------------------------------------
     // E. Room Header Signage Badges (Distinct Illuminated Signs)
@@ -1424,42 +2398,53 @@ export function OfficeSimulation({
     // F. Detailed Office Furniture & Props
     // -----------------------------------------------------------------
 
-    // ROOM 01: RECEPTION LOBBY
-    const recepDeskPt = toIso(4, 17, originX, originY);
-    ctx.fillStyle = isDark ? "#4B3B28" : "#8C7B65";
-    ctx.fillRect(recepDeskPt.x - 24, recepDeskPt.y - 10, 48, 16);
+    // ROOM 01: GRAND RECEPTION LOBBY & VISITOR LOUNGE (gx: 10..15, gy: 9..13)
+    const recepDeskPt = toIso(12.5, 11, originX, originY);
+    ctx.fillStyle = isDark ? "#3E2616" : "#8C7B65";
+    ctx.fillRect(recepDeskPt.x - 26, recepDeskPt.y - 10, 52, 18);
     ctx.fillStyle = isDark ? "#FFB71B" : "#B45309";
     ctx.font = "bold 7px monospace";
     ctx.textAlign = "center";
-    ctx.fillText("FRONT DESK", recepDeskPt.x, recepDeskPt.y - 14);
+    ctx.fillText("FRONT RECEPTION", recepDeskPt.x, recepDeskPt.y - 14);
 
-    const sofaPt = toIso(2, 18, originX, originY);
+    const sofaPt = toIso(14, 12.5, originX, originY);
     ctx.fillStyle = isDark ? "#5C3A24" : "#A67C52";
-    ctx.fillRect(sofaPt.x - 16, sofaPt.y - 8, 32, 14);
+    ctx.fillRect(sofaPt.x - 22, sofaPt.y - 8, 44, 16);
+    ctx.fillRect(sofaPt.x - 22, sofaPt.y - 15, 10, 15);
+    ctx.strokeStyle = "#2D1B10";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sofaPt.x - 22, sofaPt.y - 8, 44, 16);
 
-    // ROOM 02: INGRESS SERVER VAULT
-    const serverPt = toIso(4, 2, originX, originY);
-    ctx.fillStyle = isDark ? "#0A1017" : "#2D3748";
-    ctx.fillRect(serverPt.x - 24, serverPt.y - 48, 48, 54);
-    ctx.strokeStyle = "#00E5FF";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(serverPt.x - 24, serverPt.y - 48, 48, 54);
+    const coffeeTablePt = toIso(11, 12.5, originX, originY);
+    ctx.fillStyle = isDark ? "#1E293B" : "#E2E8F0";
+    ctx.fillRect(coffeeTablePt.x - 12, coffeeTablePt.y - 6, 24, 12);
+    ctx.strokeStyle = "#38BDF8";
+    ctx.strokeRect(coffeeTablePt.x - 12, coffeeTablePt.y - 6, 24, 12);
 
-    for (let ly = serverPt.y - 42; ly < serverPt.y - 4; ly += 6) {
+    // ROOM 02: INGRESS SERVER VAULT (gx: 1..7, gy: 1..5)
+    [toIso(2.5, 2.2, originX, originY), toIso(4.5, 2.2, originX, originY), toIso(6.5, 2.2, originX, originY)].forEach((sPt, idx) => {
+      ctx.fillStyle = isDark ? "#0A1017" : "#1E293B";
+      ctx.fillRect(sPt.x - 14, sPt.y - 42, 28, 46);
+      ctx.strokeStyle = "#00E5FF";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(sPt.x - 14, sPt.y - 42, 28, 46);
+
+      for (let ly = sPt.y - 36; ly < sPt.y - 4; ly += 6) {
+        ctx.fillStyle = idx === 0 ? "#00E5FF" : (idx === 1 ? "#34D399" : "#C084FC");
+        ctx.fillRect(sPt.x - 10, ly, 6, 2.5);
+        ctx.fillStyle = (animationTick + idx) % 4 < 2 ? "#34D399" : "#FFB71B";
+        ctx.fillRect(sPt.x - 2, ly, 8, 2.5);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(sPt.x + 8, ly, 4, 2.5);
+      }
       ctx.fillStyle = "#00E5FF";
-      ctx.fillRect(serverPt.x - 18, ly, 8, 2.5);
-      ctx.fillStyle = animationTick % 4 < 2 ? "#34D399" : "#FFB71B";
-      ctx.fillRect(serverPt.x - 6, ly, 10, 2.5);
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(serverPt.x + 8, ly, 8, 2.5);
-    }
-    ctx.fillStyle = "#00E5FF";
-    ctx.font = "bold 7px 'Silkscreen', monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("INGRESS RACK", serverPt.x, serverPt.y - 52);
+      ctx.font = "bold 6px 'Silkscreen', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(`RACK 0${idx + 1}`, sPt.x, sPt.y - 45);
+    });
 
-    // ROOM 03: EXECUTIVE DIRECTOR SUITE
-    const execDeskPt = toIso(11, 3, originX, originY);
+    // ROOM 03: EXECUTIVE DIRECTOR SUITE (gx: 8..15, gy: 1..5)
+    const execDeskPt = toIso(11.5, 3.2, originX, originY);
     ctx.fillStyle = isDark ? "#5C3622" : "#8B5A3C";
     ctx.fillRect(execDeskPt.x - 28, execDeskPt.y - 12, 56, 18);
     ctx.fillStyle = isDark ? "#FFB71B" : "#FAF4E8";
@@ -1467,32 +2452,36 @@ export function OfficeSimulation({
     ctx.textAlign = "center";
     ctx.fillText("DIRECTOR SUITE", execDeskPt.x, execDeskPt.y - 16);
 
-    const shelfPt = toIso(9, 1.5, originX, originY);
+    const shelfPt = toIso(9.5, 1.8, originX, originY);
     ctx.fillStyle = isDark ? "#3D2012" : "#6E452B";
-    ctx.fillRect(shelfPt.x - 14, shelfPt.y - 28, 28, 30);
+    ctx.fillRect(shelfPt.x - 18, shelfPt.y - 32, 36, 34);
+    ctx.fillStyle = "#F59E0B";
+    ctx.fillRect(shelfPt.x - 14, shelfPt.y - 28, 28, 2);
+    ctx.fillRect(shelfPt.x - 14, shelfPt.y - 18, 28, 2);
+    ctx.fillRect(shelfPt.x - 14, shelfPt.y - 8, 28, 2);
 
-    // ROOM 05: BOARDROOM CONFERENCE SUITE
-    const boardTablePt = toIso(4, 10, originX, originY);
+    // ROOM 05: BOARDROOM CONFERENCE SUITE (gx: 1..9, gy: 6..9)
+    const boardTablePt = toIso(5, 7.5, originX, originY);
     ctx.fillStyle = isDark ? "#382952" : "#64748B";
-    ctx.fillRect(boardTablePt.x - 34, boardTablePt.y - 16, 68, 28);
+    ctx.fillRect(boardTablePt.x - 38, boardTablePt.y - 16, 76, 28);
     ctx.strokeStyle = isDark ? "#C084FC" : "#475569";
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(boardTablePt.x - 34, boardTablePt.y - 16, 68, 28);
+    ctx.strokeRect(boardTablePt.x - 38, boardTablePt.y - 16, 76, 28);
 
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 7px monospace";
     ctx.textAlign = "center";
-    ctx.fillText("BOARDROOM MATRIX", boardTablePt.x, boardTablePt.y - 4);
+    ctx.fillText("AI ARBITRAGE WAR ROOM", boardTablePt.x, boardTablePt.y - 4);
 
-    for (let c = -20; c <= 20; c += 14) {
+    for (let c = -24; c <= 24; c += 12) {
       ctx.fillStyle = isDark ? "#FFB71B" : "#B45309";
       ctx.fillRect(boardTablePt.x + c - 3, boardTablePt.y - 20, 6, 4);
       ctx.fillRect(boardTablePt.x + c - 3, boardTablePt.y + 13, 6, 4);
     }
 
-    // ROOM 06: SOUNDPROOF FOCUS PODS
-    const pod1Pt = toIso(10, 8, originX, originY);
-    const pod2Pt = toIso(13, 8, originX, originY);
+    // ROOM 06: SOUNDPROOF FOCUS PODS (gx: 10..15, gy: 6..8)
+    const pod1Pt = toIso(11, 7, originX, originY);
+    const pod2Pt = toIso(13.5, 7, originX, originY);
     [pod1Pt, pod2Pt].forEach((pt, idx) => {
       ctx.fillStyle = isDark ? "rgba(30, 58, 138, 0.45)" : "rgba(96, 165, 250, 0.25)";
       ctx.fillRect(pt.x - 16, pt.y - 28, 32, 34);
@@ -1505,64 +2494,179 @@ export function OfficeSimulation({
       ctx.fillText(`POD #${idx + 1}`, pt.x, pt.y - 31);
     });
 
-    // ROOM 07: KITCHEN, PANTRY & CAFETERIA
-    const cafeBarPt = toIso(11, 13, originX, originY);
+    // ROOM 07: KITCHEN, PANTRY & BISTRO (gx: 1..9, gy: 10..13)
+    const cafeBarPt = toIso(4, 10.5, originX, originY);
     ctx.fillStyle = isDark ? "#8C4318" : "#B45309";
-    ctx.fillRect(cafeBarPt.x - 36, cafeBarPt.y - 12, 72, 18);
-    ctx.fillStyle = isDark ? "#EA580C" : "#D97706";
-    ctx.fillRect(cafeBarPt.x - 36, cafeBarPt.y - 12, 72, 3);
-
+    ctx.fillRect(cafeBarPt.x - 34, cafeBarPt.y - 10, 68, 16);
     ctx.fillStyle = "#D97706";
-    ctx.fillRect(cafeBarPt.x - 24, cafeBarPt.y - 26, 16, 14);
+    ctx.fillRect(cafeBarPt.x - 22, cafeBarPt.y - 24, 16, 14);
     ctx.fillStyle = isDark ? "#FEF3C7" : "#FFFBEB";
     ctx.font = "bold 7px monospace";
-    ctx.fillText("☕ ESPRESSO", cafeBarPt.x - 14, cafeBarPt.y - 29);
+    ctx.fillText("☕ ESPRESSO BAR", cafeBarPt.x - 14, cafeBarPt.y - 27);
 
-    const fridgePt = toIso(15, 12, originX, originY);
+    const fridgePt = toIso(2, 10.5, originX, originY);
     ctx.fillStyle = isDark ? "#64748B" : "#CBD5E1";
-    ctx.fillRect(fridgePt.x - 12, fridgePt.y - 34, 24, 36);
+    ctx.fillRect(fridgePt.x - 10, fridgePt.y - 30, 20, 32);
     ctx.strokeStyle = "#334155";
-    ctx.strokeRect(fridgePt.x - 12, fridgePt.y - 34, 24, 36);
+    ctx.strokeRect(fridgePt.x - 10, fridgePt.y - 30, 20, 32);
 
-    const diningPt = toIso(13, 17, originX, originY);
+    const diningPt = toIso(6, 12, originX, originY);
     ctx.fillStyle = isDark ? "#9A6340" : "#A67C52";
     ctx.beginPath();
-    ctx.ellipse(diningPt.x, diningPt.y, 22, 10, 0, 0, Math.PI * 2);
+    ctx.ellipse(diningPt.x, diningPt.y, 20, 9, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = isDark ? "#FB923C" : "#B45309";
     ctx.stroke();
 
-    // ROOM 08: ARCADE & WELLNESS GYM
-    const arcadePt = toIso(20, 14, originX, originY);
-    ctx.fillStyle = "#2E1065";
-    ctx.fillRect(arcadePt.x - 14, arcadePt.y - 32, 28, 36);
-    ctx.strokeStyle = "#A855F7";
-    ctx.strokeRect(arcadePt.x - 14, arcadePt.y - 32, 28, 36);
-    ctx.fillStyle = animationTick % 6 < 3 ? "#F43F5E" : "#38BDF8";
-    ctx.fillRect(arcadePt.x - 10, arcadePt.y - 26, 20, 14);
+    const vendingPt = toIso(8.5, 10.5, originX, originY);
+    ctx.fillStyle = "#1E293B";
+    ctx.fillRect(vendingPt.x - 10, vendingPt.y - 30, 20, 32);
+    ctx.strokeStyle = "#F59E0B";
+    ctx.strokeRect(vendingPt.x - 10, vendingPt.y - 30, 20, 32);
+    ctx.fillStyle = animationTick % 4 < 2 ? "#34D399" : "#38BDF8";
+    ctx.fillRect(vendingPt.x - 7, vendingPt.y - 24, 14, 12);
+
+    // OUTDOOR FRONT YARD (gy >= 14): THE SIMS LUXURY RESORT POOL & TROPICAL GARDEN
+    // 1. Chrome Pool Ladder at (18.5, 15)
+    const ladderPt = toIso(18.5, 15, originX, originY);
+    ctx.strokeStyle = "#CBD5E1";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ladderPt.x - 6, ladderPt.y - 10);
+    ctx.lineTo(ladderPt.x - 6, ladderPt.y + 6);
+    ctx.moveTo(ladderPt.x + 6, ladderPt.y - 10);
+    ctx.lineTo(ladderPt.x + 6, ladderPt.y + 6);
+    ctx.moveTo(ladderPt.x - 6, ladderPt.y - 3);
+    ctx.lineTo(ladderPt.x + 6, ladderPt.y - 3);
+    ctx.moveTo(ladderPt.x - 6, ladderPt.y + 2);
+    ctx.lineTo(ladderPt.x + 6, ladderPt.y + 2);
+    ctx.stroke();
+
+    // 2. Cute Inflatable Floating Duck on Pool Water
+    const floatBob = Math.sin(animationTick * 0.12) * 2;
+    const floatPt = toIso(21.5, 17.5, originX, originY);
+    const floatY = floatPt.y + 6 + floatBob;
     ctx.fillStyle = "#FDE047";
-    ctx.font = "bold 6px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("THEGATE 16b", arcadePt.x, arcadePt.y - 35);
+    ctx.beginPath();
+    ctx.ellipse(floatPt.x, floatY, 14, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#CA8A04";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = isDark ? "#0284C7" : "#0EA5E9";
+    ctx.beginPath();
+    ctx.ellipse(floatPt.x, floatY, 5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#FDE047";
+    ctx.beginPath();
+    ctx.arc(floatPt.x + 9, floatY - 5, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#EA580C";
+    ctx.fillRect(floatPt.x + 12, floatY - 6, 4, 2.5);
 
-    const treadmillPt = toIso(25, 14, originX, originY);
-    ctx.fillStyle = "#334155";
-    ctx.fillRect(treadmillPt.x - 18, treadmillPt.y - 10, 36, 16);
-    ctx.fillStyle = "#EF4444";
-    ctx.font = "bold 7px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("⚡ TREADMILL", treadmillPt.x, treadmillPt.y - 14);
+    // 3. Poolside Sun Loungers (Kursi Santai Jemur)
+    const lounger1Pt = toIso(17, 16.5, originX, originY);
+    const lounger2Pt = toIso(17, 18.5, originX, originY);
+    [lounger1Pt, lounger2Pt].forEach((lPt, idx) => {
+      ctx.fillStyle = isDark ? "#E2E8F0" : "#FFFFFF";
+      ctx.fillRect(lPt.x - 13, lPt.y - 4, 26, 9);
+      ctx.strokeStyle = "#475569";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lPt.x - 13, lPt.y - 4, 26, 9);
+      ctx.fillStyle = idx === 0 ? "#38BDF8" : "#FB923C";
+      ctx.fillRect(lPt.x - 13, lPt.y - 7, 8, 7);
+      ctx.strokeRect(lPt.x - 13, lPt.y - 7, 8, 7);
+    });
 
-    const plant1Pt = toIso(7, 19, originX, originY);
-    const plant2Pt = toIso(18, 19, originX, originY);
-    [plant1Pt, plant2Pt].forEach((pt) => {
-      ctx.fillStyle = isDark ? "#15803D" : "#166534";
+    // 4. Striped Beach Parasol Umbrella (Payung Pantai)
+    const umbrellaPt = toIso(16.5, 15, originX, originY);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+    ctx.beginPath();
+    ctx.ellipse(umbrellaPt.x + 6, umbrellaPt.y + 4, 18, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#94A3B8";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(umbrellaPt.x, umbrellaPt.y + 4);
+    ctx.lineTo(umbrellaPt.x, umbrellaPt.y - 32);
+    ctx.stroke();
+    const uY = umbrellaPt.y - 32;
+    ctx.fillStyle = "#F97316";
+    ctx.beginPath();
+    ctx.arc(umbrellaPt.x, uY, 22, Math.PI, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#C2410C";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.moveTo(umbrellaPt.x - 7, uY);
+    ctx.lineTo(umbrellaPt.x, uY - 22);
+    ctx.lineTo(umbrellaPt.x + 7, uY);
+    ctx.closePath();
+    ctx.fill();
+
+    // 5. Potted Tropical Palm / Monstera Trees in Garden
+    [toIso(2, 19, originX, originY), toIso(10, 19, originX, originY)].forEach((palmPt) => {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
       ctx.beginPath();
-      ctx.arc(pt.x, pt.y - 8, 8, 0, Math.PI * 2);
+      ctx.ellipse(palmPt.x + 4, palmPt.y + 4, 18, 9, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#78350F";
-      ctx.fillRect(pt.x - 4, pt.y, 8, 6);
+      ctx.fillRect(palmPt.x - 3, palmPt.y - 24, 6, 26);
+      ctx.fillStyle = isDark ? "#15803D" : "#22C55E";
+      ctx.beginPath();
+      ctx.arc(palmPt.x, palmPt.y - 28, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = isDark ? "#16A34A" : "#4ADE80";
+      ctx.beginPath();
+      ctx.arc(palmPt.x - 5, palmPt.y - 34, 10, 0, Math.PI * 2);
+      ctx.arc(palmPt.x + 5, palmPt.y - 34, 10, 0, Math.PI * 2);
+      ctx.fill();
     });
+
+    // 6. Wooden Garden Park Bench at (5, 18)
+    const benchPt = toIso(5, 18, originX, originY);
+    ctx.fillStyle = "#92400E";
+    ctx.fillRect(benchPt.x - 14, benchPt.y - 7, 28, 10);
+    ctx.strokeStyle = "#451A03";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(benchPt.x - 14, benchPt.y - 7, 28, 10);
+
+    // 7. Outdoor Stone BBQ Grill with animated smoke puffs
+    const bbqPt = toIso(8, 16.5, originX, originY);
+    ctx.fillStyle = "#475569";
+    ctx.fillRect(bbqPt.x - 10, bbqPt.y - 18, 20, 20);
+    ctx.strokeStyle = "#1E293B";
+    ctx.strokeRect(bbqPt.x - 10, bbqPt.y - 18, 20, 20);
+    ctx.fillStyle = "#0F172A";
+    ctx.fillRect(bbqPt.x - 8, bbqPt.y - 16, 16, 6);
+    const smokeY = bbqPt.y - 22 - ((animationTick * 0.4) % 16);
+    const smokeAlpha = 1 - (((animationTick * 0.4) % 16) / 16);
+    ctx.fillStyle = `rgba(203, 213, 225, ${smokeAlpha})`;
+    ctx.beginPath();
+    ctx.arc(bbqPt.x - 1, smokeY, 3, 0, Math.PI * 2);
+    ctx.arc(bbqPt.x + 3, smokeY - 2, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 8. Vintage Streetlamp with soft amber glow
+    const lampPt = toIso(3, 16.5, originX, originY);
+    ctx.strokeStyle = "#1E293B";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(lampPt.x, lampPt.y);
+    ctx.lineTo(lampPt.x, lampPt.y - 36);
+    ctx.stroke();
+    ctx.fillStyle = "#F59E0B";
+    ctx.beginPath();
+    ctx.arc(lampPt.x, lampPt.y - 38, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(245, 158, 11, 0.25)";
+    ctx.beginPath();
+    ctx.arc(lampPt.x, lampPt.y - 38, 14, 0, Math.PI * 2);
+    ctx.fill();
 
     // -----------------------------------------------------------------
     // G. ROOM 04: Render Workstation PC Desks in Cubicle Bays
@@ -1640,18 +2744,68 @@ export function OfficeSimulation({
       ctx.ellipse(chairPt.x, chairPt.y, 8, 5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Model Identification Tag Banner
+      // Model Identification Tag Banner (Vibrant Multi-Provider Badge)
       ctx.fillStyle = isDark ? "#0F172A" : "#FFFFFF";
       ctx.strokeStyle = pc.screenGlow;
       ctx.lineWidth = 1.5;
-      const tag = pc.internalName.length > 15 ? pc.internalName.slice(0, 14) + "…" : pc.internalName;
-      ctx.strokeRect(pt.x - 34, monY - 14, 68, 12);
-      ctx.fillRect(pt.x - 34, monY - 14, 68, 12);
 
-      ctx.fillStyle = isDark ? "#F9FAFB" : "#1A1423";
+      const formatModelTag = (name: string) => {
+        if (!name || name.includes("Standby")) return "STANDBY";
+        let prov = "";
+        let model = name;
+        if (name.includes("/")) {
+          const parts = name.split("/");
+          prov = parts[0].toUpperCase();
+          model = parts.slice(1).join("/");
+        }
+        const provMap: Record<string, string> = {
+          NVIDIA: "NV",
+          OPENROUTER: "OR",
+          CLOUDFLARE: "CF",
+          DEEPSEEK: "DS",
+          ANTIGRAVITY: "AG",
+          GEMINI: "GEM",
+          GROQ: "GROQ",
+          KIRO: "KR",
+          MIMO: "MIMO",
+        };
+        const pTag = provMap[prov] || prov;
+
+        let clean = model
+          .replace(/^@cf\/meta\//i, "")
+          .replace(/^minimaxai\//i, "")
+          .replace(/^meta-llama\//i, "")
+          .replace(/-instruct$/i, "")
+          .replace(/-versatile$/i, "")
+          .replace(/^gemini-/i, "")
+          .replace(/^claude-/i, "")
+          .replace(/-thinking$/i, "");
+
+        if (clean.toLowerCase().includes("flash-high")) clean = "Flash-High";
+        else if (clean.toLowerCase().includes("sonnet")) clean = "Sonnet 4.6";
+        else if (clean.toLowerCase().includes("opus")) clean = "Opus 5.5";
+        else if (clean.toLowerCase().includes("deepseek-v4")) clean = "DS-v4 Pro";
+        else if (clean.toLowerCase().includes("llama-3.3")) clean = "LLaMA 3.3";
+        else if (clean.toLowerCase().includes("llama-3.2")) clean = "LLaMA 3.2";
+        else if (clean.toLowerCase().includes("minimax")) clean = "MiniMax 2.7";
+        else if (clean.toLowerCase().includes("glm-5.3")) clean = "GLM 5.3";
+        else if (clean.toLowerCase().includes("mimo-v2.6")) clean = "MiMo Pro";
+        else if (clean.toLowerCase().includes("auto")) clean = "Auto Route";
+
+        if (clean.length > 10) clean = clean.slice(0, 9) + "…";
+        return pTag ? `[${pTag}] ${clean}` : clean;
+      };
+
+      const displayTag = formatModelTag(pc.internalName);
+      const tagW = Math.max(78, displayTag.length * 6 + 10);
+
+      ctx.strokeRect(pt.x - tagW / 2, monY - 14, tagW, 13);
+      ctx.fillRect(pt.x - tagW / 2, monY - 14, tagW, 13);
+
+      ctx.fillStyle = isDark ? pc.screenGlow : "#0F172A";
       ctx.font = "bold 7px 'Silkscreen', monospace";
       ctx.textAlign = "center";
-      ctx.fillText(tag, pt.x, monY - 5);
+      ctx.fillText(displayTag, pt.x, monY - 5);
     };
 
     workstationPCs.forEach((pc) => {
@@ -1674,18 +2828,52 @@ export function OfficeSimulation({
       ctx.ellipse(pt.x, pt.y + 11, 9, 4.5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      const bob = agent.state === "walking" ? (agent.walkFrame % 2 === 0 ? -2 : 0) : 0;
+      const isWalking = agent.state === "walking";
+      const isTyping = agent.state === "using_pc";
+      const stride = isWalking ? Math.sin((agent.walkFrame || 0) * (Math.PI / 2)) * 3 : 0;
+      const bob = isWalking ? (agent.walkFrame % 2 === 0 ? -2 : 0) : 0;
       const cy = pt.y - 12 + bob;
 
+      // Legs / Seated pose
       ctx.fillStyle = isDark ? "#0F172A" : "#334155";
-      ctx.fillRect(pt.x - 4, cy + 12, 3, 6);
-      ctx.fillRect(pt.x + 1, cy + 12, 3, 6);
+      if (isTyping) {
+        // Seated knees bent towards desk
+        ctx.fillRect(pt.x - 5, cy + 10, 10, 5);
+      } else {
+        // Walking stride
+        ctx.fillRect(pt.x - 4, cy + 12 - stride, 3, 6 + stride);
+        ctx.fillRect(pt.x + 1, cy + 12 + stride, 3, 6 - stride);
+      }
 
       ctx.fillStyle = agent.shirtColor;
       ctx.fillRect(pt.x - 6, cy + 4, 12, 9);
       ctx.strokeStyle = isDark ? "#0F172A" : "#1E293B";
       ctx.lineWidth = 1;
       ctx.strokeRect(pt.x - 6, cy + 4, 12, 9);
+
+      // Arms (with walking swing or laptop typing)
+      if (isTyping) {
+        const tapL = Math.sin(animationTick * 0.7) * 2;
+        const tapR = Math.cos(animationTick * 0.7) * 2;
+        ctx.fillStyle = agent.shirtColor;
+        ctx.fillRect(pt.x - 8, cy + 5, 3, 4);
+        ctx.fillRect(pt.x + 5, cy + 5, 3, 4);
+        ctx.fillStyle = "#F6D5B8";
+        ctx.fillRect(pt.x - 6, cy + 8 + tapL, 4, 3);
+        ctx.fillRect(pt.x + 2, cy + 8 + tapR, 4, 3);
+
+        // Neon Matrix Code Sparks rising from laptop
+        const sparkShift = (animationTick * 2 + agent.gx * 4) % 18;
+        const sparkAlpha = Math.max(0, 1 - (sparkShift / 18));
+        ctx.fillStyle = `rgba(52, 211, 153, ${sparkAlpha})`;
+        ctx.font = "bold 8px monospace";
+        ctx.fillText(animationTick % 4 === 0 ? "<>" : (animationTick % 4 === 1 ? "01" : "λ"), pt.x + (animationTick % 3 - 1) * 6, cy - 2 - sparkShift);
+      } else if (isWalking) {
+        const armSwing = Math.sin((agent.walkFrame || 0) * (Math.PI / 2)) * 2;
+        ctx.fillStyle = agent.shirtColor;
+        ctx.fillRect(pt.x - 8, cy + 5 - armSwing, 3, 6);
+        ctx.fillRect(pt.x + 5, cy + 5 + armSwing, 3, 6);
+      }
 
       if (agent.tieColor) {
         ctx.fillStyle = agent.tieColor;
@@ -1719,6 +2907,125 @@ export function OfficeSimulation({
         ctx.strokeRect(pt.x - 9, cy - 11, 18, 30);
       }
 
+      // -------------------------------------------------------------
+      // Crisp Role Label Badge Floating Over Every NPC
+      // -------------------------------------------------------------
+      const ROLE_BADGES: Record<string, { short: string; color: string; border: string }> = {
+        "Lead Fullstack Engineer": { short: "ARCHITECT", color: "#38BDF8", border: "#0284C7" },
+        "Security Auditor & Systems Architect": { short: "SEC AUDITOR", color: "#F43F5E", border: "#E11D48" },
+        "Data Intelligence Analyst": { short: "DATA INTEL", color: "#34D399", border: "#059669" },
+        "Creative Copywriter & Brand Strategist": { short: "COPYWRITER", color: "#C084FC", border: "#9333EA" },
+        "Operations Assistant": { short: "OPERATIONS", color: "#FBBF24", border: "#D97706" },
+      };
+
+      const getRoleShort = (roleStr: string) => {
+        if (ROLE_BADGES[roleStr]) return ROLE_BADGES[roleStr];
+        const lower = (roleStr || "").toLowerCase();
+        if (lower.includes("architect") || lower.includes("fullstack")) return { short: "ARCHITECT", color: "#38BDF8", border: "#0284C7" };
+        if (lower.includes("security") || lower.includes("auditor")) return { short: "SEC AUDITOR", color: "#F43F5E", border: "#E11D48" };
+        if (lower.includes("data") || lower.includes("analyst")) return { short: "DATA INTEL", color: "#34D399", border: "#059669" };
+        if (lower.includes("copy") || lower.includes("brand")) return { short: "COPYWRITER", color: "#C084FC", border: "#9333EA" };
+        if (lower.includes("assistant") || lower.includes("operations")) return { short: "OPERATIONS", color: "#FBBF24", border: "#D97706" };
+        return { short: (roleStr || "AI AGENT").slice(0, 9).toUpperCase(), color: "#FFB71B", border: "#B45309" };
+      };
+
+      const badgeInfo = getRoleShort(agent.role);
+      const badgeW = Math.max(54, badgeInfo.short.length * 6 + 10);
+      const badgeH = 11;
+      const badgeX = pt.x - badgeW / 2;
+      const badgeY = cy - 23;
+
+      ctx.save();
+      ctx.fillStyle = isDark ? "rgba(15, 23, 42, 0.95)" : "rgba(255, 255, 255, 0.98)";
+      ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+      ctx.strokeStyle = isSelected ? "#FFB71B" : (agent.state === "using_pc" ? "#34D399" : badgeInfo.border);
+      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
+
+      ctx.fillStyle = isSelected ? "#FFB71B" : badgeInfo.color;
+      ctx.font = "bold 7px 'Silkscreen', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(badgeInfo.short, pt.x, badgeY + 8);
+      ctx.restore();
+
+      // -------------------------------------------------------------
+      // The Sims Iconic Green Plumbob (Rotating / Bobbing 3D Diamond)
+      // -------------------------------------------------------------
+      const isSpeaking = Boolean(activeSpeaker && activeSpeaker.id === agent.id);
+      const isWorking = agent.state === "using_pc";
+
+      if (isSelected || isSpeaking || isWorking) {
+        const pbBob = Math.sin((animationTick * 0.22) + (agent.gx * 0.5)) * 3;
+        const pbY = cy - 35 + pbBob;
+        const pbW = 4.5;
+        const pbH = 8;
+
+        ctx.save();
+        ctx.fillStyle = isWorking ? "#22C55E" : (isSpeaking ? "#4ADE80" : "#10B981");
+        ctx.strokeStyle = "#064E3B";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pbY - pbH);
+        ctx.lineTo(pt.x + pbW, pbY);
+        ctx.lineTo(pt.x, pbY + 2);
+        ctx.lineTo(pt.x - pbW, pbY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = isWorking ? "#86EFAC" : (isSpeaking ? "#A7F3D0" : "#34D399");
+        ctx.beginPath();
+        ctx.moveTo(pt.x - pbW, pbY);
+        ctx.lineTo(pt.x + pbW, pbY);
+        ctx.lineTo(pt.x, pbY + pbH);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // The Sims Swimming Effect: Water Submersion & Ripples
+      if (agent.state === "swimming") {
+        const ripShift = (animationTick * 0.3) % 6;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(pt.x, cy + 12, 11 + ripShift, 5.5 + ripShift * 0.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // The Sims Sunbathing Sunglasses
+      if (agent.state === "sunbathing") {
+        ctx.fillStyle = "#0F172A";
+        ctx.fillRect(pt.x - 4, cy - 3, 9, 3);
+        ctx.fillStyle = "#38BDF8";
+        ctx.fillRect(pt.x - 3, cy - 2, 2, 1);
+        ctx.fillRect(pt.x + 2, cy - 2, 2, 1);
+      }
+
+      // The Sims Playful Thought Bubbles for Relaxing Agents
+      if (!agent.dialogue && (agent.state === "cafe" || agent.state === "arcade" || agent.state === "swimming" || agent.state === "sunbathing" || agent.state === "garden")) {
+        const emojiMap: Record<string, string> = {
+          cafe: "☕",
+          arcade: "🕹️",
+          swimming: "🏊",
+          sunbathing: "🏖️",
+          garden: "🌸",
+        };
+        const em = emojiMap[agent.state] || "💭";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.beginPath();
+        ctx.arc(pt.x + 8, cy - 14, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#1E293B";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = "#000000";
+        ctx.font = "8px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(em, pt.x + 8, cy - 11);
+      }
+
       // If agent has dialogue but is NOT the chosen active speaker, render subtle 💬 icon
       if (agent.dialogue && activeSpeaker && activeSpeaker.id !== agent.id) {
         ctx.fillStyle = isDark ? "#FFB71B" : "#B45309";
@@ -1731,6 +3038,37 @@ export function OfficeSimulation({
     sortedAgents.forEach((agent) => {
       drawAgent(agent);
     });
+
+    // -----------------------------------------------------------------
+    // Interactive Prop Selection Indicator & Glowing Ring
+    // -----------------------------------------------------------------
+    if (selectedObjectId) {
+      const activeProp = INTERACTIVE_PROPS.find((p) => p.id === selectedObjectId);
+      if (activeProp) {
+        const pPt = toIso(activeProp.gx, activeProp.gy, originX, originY);
+        const pulse = Math.sin(animationTick * 0.18) * 4;
+        ctx.save();
+        ctx.strokeStyle = "#FFB71B";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.ellipse(pPt.x, pPt.y, (activeProp.radius || 30) + pulse, ((activeProp.radius || 30) / 2) + pulse * 0.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Floating retro pill label
+        ctx.fillStyle = isDark ? "#0F172A" : "#FFFFFF";
+        ctx.fillRect(pPt.x - 52, pPt.y - 42, 104, 15);
+        ctx.strokeStyle = "#FFB71B";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(pPt.x - 52, pPt.y - 42, 104, 15);
+        ctx.fillStyle = "#FFB71B";
+        ctx.font = "bold 7px 'Silkscreen', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`✨ ${activeProp.icon} ${activeProp.name.slice(0, 16)}`, pPt.x, pPt.y - 32);
+        ctx.restore();
+      }
+    }
 
     // -----------------------------------------------------------------
     // I. Render ONLY the Top Active Speech Bubble (Prevents Screen Clutter)
@@ -1893,10 +3231,21 @@ export function OfficeSimulation({
       const originX = W / 2 + 10;
       const originY = 85;
 
+      // 1. Check Interactive Props Touch
+      for (const prop of INTERACTIVE_PROPS) {
+        const pt = toIso(prop.gx, prop.gy, originX, originY);
+        if (Math.hypot(clickX - pt.x, clickY - pt.y) < (prop.radius || 32)) {
+          setSelectedObjectId(prop.id);
+          setSelectedPcId(null);
+          return;
+        }
+      }
+
       workstationPCs.forEach((ws) => {
         const pt = toIso(ws.gx, ws.gy, originX, originY);
         if (Math.hypot(clickX - pt.x, clickY - pt.y) < 32) {
           setSelectedPcId(ws.id);
+          setSelectedObjectId(null);
           if (onSelectModel && ws.modelId !== "offline") {
             onSelectModel(ws.modelId);
           }
@@ -1923,19 +3272,35 @@ export function OfficeSimulation({
     const originX = W / 2 + 10;
     const originY = 85;
 
+    // 1. Check Interactive Props Click
+    for (const prop of INTERACTIVE_PROPS) {
+      const pt = toIso(prop.gx, prop.gy, originX, originY);
+      if (Math.hypot(clickX - pt.x, clickY - pt.y) < (prop.radius || 30)) {
+        setSelectedObjectId(prop.id);
+        setSelectedPcId(null);
+        return;
+      }
+    }
+
+    // 2. Check Workstations
+    let clickedPc = false;
     workstationPCs.forEach((ws) => {
       const pt = toIso(ws.gx, ws.gy, originX, originY);
-      if (Math.hypot(clickX - pt.x, clickY - pt.y) < 28) {
+      if (Math.hypot(clickX - pt.x, clickY - pt.y) < 32) {
         setSelectedPcId(ws.id);
+        setSelectedObjectId(null);
+        clickedPc = true;
         if (onSelectModel && ws.modelId !== "offline") {
           onSelectModel(ws.modelId);
         }
       }
     });
+    if (clickedPc) return;
 
+    // 3. Check Agents
     agents.forEach((ag) => {
       const pt = toIso(ag.gx, ag.gy, originX, originY);
-      if (Math.hypot(clickX - pt.x, clickY - pt.y) < 24) {
+      if (Math.hypot(clickX - pt.x, clickY - (pt.y - 12)) < 28) {
         setSelectedAgentId(ag.id);
       }
     });
@@ -1982,22 +3347,22 @@ export function OfficeSimulation({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-pixel text-sm tracking-wider text-white">
-                THEGATE <span className="text-retro-amber">CAMPUS</span>
+                THEGATE <span className="text-retro-amber">ESTATE & VILLA</span>
               </span>
               <PixelBadge variant="mint" size="xs">
-                ISOMETRIC 16-BIT
+                THE SIMS 16-BIT
               </PixelBadge>
             </div>
             <p className="text-[10px] font-mono text-slate-300 mt-0.5">
-              Live AI Operations & Routing Headquarters • Top-Down 3D Perspective
+              Live AI Operations Estate • Resort Pool & Courtyard Garden • Isometric 3D
             </p>
           </div>
         </div>
         <div className="hidden sm:flex items-center gap-2 font-mono text-xs text-retro-paper">
           <img
-            src="/icon.png"
+            src="/thegate-metaicon.png"
             alt="TheGate Meta Icon"
-            className="h-7 w-7 object-contain border border-black shadow-pixel-xs"
+            className="h-8 w-8 object-contain border border-black shadow-pixel-xs"
             style={{ imageRendering: "pixelated" }}
           />
           <span>Sentinel Protocol: <strong className="text-retro-mint">ARMED</strong></span>
@@ -2091,18 +3456,32 @@ export function OfficeSimulation({
             07: BISTRO
           </button>
           <button
-            onClick={() => focusRoom("recreation-gym")}
+            onClick={() => focusRoom("resort-pool")}
             className={`shrink-0 px-2 py-1 font-pixel text-xs border-2 border-black transition-none cursor-pointer ${
-              activeRoomFocus === "recreation-gym"
+              activeRoomFocus === "resort-pool" || activeRoomFocus === "recreation-gym"
                 ? "bg-retro-amber text-black shadow-pixel-sm font-bold"
                 : "bg-retro-coal text-retro-cream hover:bg-retro-sand hover:text-black"
             }`}
           >
-            08: ARCADE & GYM
+            🏊 08: POOL & GARDEN
           </button>
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap max-w-full pb-1 no-scrollbar pt-2 border-t border-retro-ink/50">
+          <button
+            onClick={handleDispatchPipeline}
+            disabled={isDispatchingPipeline}
+            className={`shrink-0 flex items-center gap-1.5 border-2 border-black px-2.5 py-1 font-pixel text-xs shadow-pixel-sm transition-none cursor-pointer ${
+              isDispatchingPipeline
+                ? "bg-purple-400 text-black animate-pulse cursor-wait"
+                : "bg-purple-600 hover:bg-purple-500 text-white font-bold"
+            }`}
+            title="Dispatch Real Multi-Agent DAG Pipeline (Distributed Systems & Architecture Task)"
+          >
+            <Workflow className={`h-3.5 w-3.5 ${isDispatchingPipeline ? "animate-spin" : ""}`} />
+            <span>{isDispatchingPipeline ? "DISPATCHING..." : "⚡ RUN MULTI-AGENT PIPELINE"}</span>
+          </button>
+
           <button
             onClick={handleSendTestToAntigravity}
             disabled={isTestPromptSending}
@@ -2154,6 +3533,102 @@ export function OfficeSimulation({
           </button>
         </div>
       </div>
+
+      {/* Active Multi-Agent Pipeline Monitor HUD (PRD 5.4) */}
+      {pipelineHud && (
+        <div className="border-2 border-black bg-retro-night p-3 shadow-pixel-md">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-retro-ink/60 pb-2">
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 font-pixel text-[10px] font-bold border ${
+                  pipelineHud.status === "COMPLETED"
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500"
+                    : "bg-retro-amber/20 text-retro-amber border-retro-amber animate-pulse"
+                }`}
+              >
+                {pipelineHud.status === "COMPLETED" ? "✓ 100% COMPLETE" : "⚡ ACTIVE PIPELINE"}
+              </span>
+              <span className="font-pixel text-xs font-bold text-retro-cream">
+                {pipelineHud.title}
+              </span>
+              <span className="font-mono text-xs text-retro-sand">
+                [{pipelineHud.stepProgress}]
+              </span>
+            </div>
+            {pipelineHud.dialogue && (
+              <div className="max-w-md truncate font-mono text-xs text-retro-cream italic">
+                💬 {pipelineHud.dialogue}
+              </div>
+            )}
+          </div>
+
+          {/* Step Nodes Flow */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 overflow-x-auto no-scrollbar">
+            {pipelineHud.stepsHistory.map((step, idx) => {
+              const isActive = pipelineHud.status !== "COMPLETED" && pipelineHud.stepIndex === idx;
+              const isDone = step.status === "DONE" || pipelineHud.status === "COMPLETED";
+              return (
+                <React.Fragment key={idx}>
+                  <div
+                    onClick={() => {
+                      if (step.outputPreview) {
+                        setInspectingStepArtifact({
+                          title: step.title,
+                          role: step.roleName,
+                          content: step.outputPreview,
+                        });
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 border-2 text-xs font-mono transition-all ${
+                      isDone
+                        ? "border-emerald-500 bg-emerald-950/40 text-emerald-300 cursor-pointer hover:bg-emerald-900/60"
+                        : isActive
+                        ? "border-retro-amber bg-amber-950/40 text-retro-amber animate-pulse"
+                        : "border-retro-ink bg-retro-coal/40 text-retro-sand/60"
+                    }`}
+                    title={step.outputPreview ? "Klik untuk inspeksi artefak" : undefined}
+                  >
+                    {isDone ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                    ) : isActive ? (
+                      <Zap className="h-3.5 w-3.5 text-retro-amber fill-retro-amber animate-bounce" />
+                    ) : (
+                      <span className="text-[10px] font-pixel text-retro-sand">{idx + 1}</span>
+                    )}
+                    <span className="font-bold">{step.roleName}</span>
+                    {step.durationMs ? (
+                      <span className="text-[10px] opacity-75">({step.durationMs}ms)</span>
+                    ) : null}
+                  </div>
+                  {idx < pipelineHud.stepsHistory.length - 1 && (
+                    <span className="text-retro-ink font-bold">➔</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          {/* Inspecting Artifact Drawer */}
+          {inspectingStepArtifact && (
+            <div className="mt-2 p-2.5 border-2 border-emerald-500 bg-black/90 font-mono text-xs text-emerald-200">
+              <div className="flex items-center justify-between pb-1 mb-1 border-b border-emerald-800">
+                <span className="font-bold text-retro-amber">
+                  📜 Artefak Inspektor: {inspectingStepArtifact.title} ({inspectingStepArtifact.role})
+                </span>
+                <button
+                  onClick={() => setInspectingStepArtifact(null)}
+                  className="text-retro-sand hover:text-white cursor-pointer px-1"
+                >
+                  ✕ Tutup
+                </button>
+              </div>
+              <pre className="whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed text-[11px]">
+                {inspectingStepArtifact.content}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Canvas Container */}
       <div className="relative overflow-hidden border-2 border-black bg-retro-night shadow-pixel-lg">
@@ -2317,64 +3792,208 @@ export function OfficeSimulation({
         </div>
 
         <div className="lg:col-span-5">
-          <PixelPanel
-            title={`${t("office.workstation_title", "WORKSTATION")} [${(selectedPc?.internalName || "BAY 1A").toUpperCase()}]`}
-            variant="dark"
-            badge={
-              <PixelBadge
-                variant={selectedPc?.status === "online" ? "mint" : "coral"}
-                size="xs"
-              >
-                {selectedPc?.status === "online" ? t("office.online", "ONLINE") : t("office.offline", "OFFLINE")}
-              </PixelBadge>
-            }
-          >
-            <div className="space-y-3 text-xs font-mono">
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.assigned_model", "Assigned Model:")}</span>
-                <span className="font-bold text-retro-amber truncate max-w-[190px]">
-                  {selectedPc?.modelId || "ag/gemini-3.8-flash-high"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.adapter_driver", "Adapter / Driver:")}</span>
-                <span className="font-bold text-retro-cream">
-                  {selectedPc?.adapter || "antigravity"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.unit_price", "Unit Price (/1M tok):")}</span>
-                <span className="font-bold text-retro-mint">
-                  {selectedPc?.inputPrice || "$0.10"} In / {selectedPc?.outputPrice || "$0.40"} Out
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.context_window", "Context Window:")}</span>
-                <span className="font-bold text-retro-cream">
-                  {selectedPc?.context || "1,048k tok"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-retro-ink pb-2">
-                <span className="text-retro-paper">{t("office.location", "Location:")}</span>
-                <span className="font-bold text-retro-cream">
-                  {t("office.location_cubicle", "Cubicle 04: AI Workstations")} ({selectedPc?.deskLabel || "BAY 1A"})
-                </span>
-              </div>
-              <div>
-                <span className="text-retro-paper block mb-1">{t("office.capabilities", "Capabilities:")}</span>
-                <div className="flex flex-wrap gap-1">
-                  {(selectedPc?.capabilities || ["Antigravity", "Streaming"]).map((cap) => (
-                    <span
-                      key={cap}
-                      className="border border-black bg-retro-night px-1.5 py-0.5 text-[9px] text-retro-paper font-bold shadow-pixel-sm"
-                    >
-                      {cap}
-                    </span>
-                  ))}
+          {selectedProp ? (
+            <PixelPanel
+              title={`OBJECT [${selectedProp.name.toUpperCase()}]`}
+              variant="amber"
+              badge={
+                <PixelBadge variant="mint" size="xs">
+                  {selectedProp.icon} INTERACTIVE
+                </PixelBadge>
+              }
+            >
+              <div className="space-y-3.5 text-xs font-mono">
+                <div className="flex items-center gap-2.5 border-b border-retro-ink pb-2.5">
+                  <span className="text-2xl shrink-0 p-1 bg-retro-night border border-black">{selectedProp.icon}</span>
+                  <div>
+                    <span className="font-bold text-retro-amber text-xs block font-pixel">{selectedProp.name}</span>
+                    <span className="text-[10px] text-retro-paper">{selectedProp.room}</span>
+                  </div>
+                </div>
+
+                <p className="text-retro-paper text-[11px] leading-relaxed">
+                  {selectedProp.description}
+                </p>
+
+                <div className="border-t border-retro-ink pt-2.5 space-y-2">
+                  <span className="font-pixel text-[9px] uppercase tracking-wider text-retro-amber block">
+                    {language === "en" ? `Command Active Agent (${selectedAgent.name}):` : `Aksi Agen Aktif (${selectedAgent.name}):`}
+                  </span>
+                  <div className="flex flex-col gap-1.5">
+                    {selectedProp.actions.map((act) => (
+                      <button
+                        key={act.label}
+                        type="button"
+                        onClick={() => handleTriggerPropAction(selectedProp, act)}
+                        className="w-full flex items-center justify-between border-2 border-black bg-retro-night hover:bg-retro-amber hover:text-black text-retro-cream px-3 py-2 font-pixel text-[10px] shadow-pixel-xs transition-none cursor-pointer group"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm">{act.icon}</span>
+                          <span className="font-bold group-hover:text-black">{act.label}</span>
+                        </span>
+                        <span className="text-[9px] font-mono text-retro-mint group-hover:text-black font-bold">SIMS ACTION ❯</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </PixelPanel>
+            </PixelPanel>
+          ) : (
+            <PixelPanel
+              title={`${t("office.workstation_title", "WORKSTATION")} [${(selectedPc?.internalName || "BAY 1A").toUpperCase()}]`}
+              variant="dark"
+              badge={
+                <PixelBadge
+                  variant={selectedPc?.status === "online" ? "mint" : "coral"}
+                  size="xs"
+                >
+                  {selectedPc?.status === "online" ? t("office.online", "ONLINE") : t("office.offline", "OFFLINE")}
+                </PixelBadge>
+              }
+            >
+              <div className="space-y-3 text-xs font-mono">
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.assigned_model", "Assigned Model:")}</span>
+                  <span className="font-bold text-retro-amber truncate max-w-[190px]">
+                    {selectedPc?.modelId || "ag/gemini-3.8-flash-high"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.adapter_driver", "Adapter / Driver:")}</span>
+                  <span className="font-bold text-retro-cream">
+                    {selectedPc?.adapter || "antigravity"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.unit_price", "Unit Price (/1M tok):")}</span>
+                  <span className="font-bold text-retro-mint">
+                    {selectedPc?.inputPrice || "$0.10"} In / {selectedPc?.outputPrice || "$0.40"} Out
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.context_window", "Context Window:")}</span>
+                  <span className="font-bold text-retro-cream">
+                    {selectedPc?.context || "1,048k tok"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-retro-ink pb-2">
+                  <span className="text-retro-paper">{t("office.location", "Location:")}</span>
+                  <span className="font-bold text-retro-cream">
+                    {t("office.location_cubicle", "Cubicle 04: AI Workstations")} ({selectedPc?.deskLabel || "BAY 1A"})
+                  </span>
+                </div>
+                <div>
+                  <span className="text-retro-paper block mb-1">{t("office.capabilities", "Capabilities:")}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {(selectedPc?.capabilities || ["Antigravity", "Streaming"]).map((cap) => (
+                      <span
+                        key={cap}
+                        className="border border-black bg-retro-night px-1.5 py-0.5 text-[9px] text-retro-paper font-bold shadow-pixel-sm"
+                      >
+                        {cap}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Desk Model Assignment */}
+                <div className="border-t border-retro-ink pt-2.5 mt-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-pixel text-[9px] uppercase tracking-wider text-retro-amber flex items-center gap-1.5">
+                      <Settings2 className="w-3 h-3 text-retro-amber" />
+                      {language === "en" ? "Desk Assignment:" : "Kustom Model Meja:"}
+                    </span>
+                    {(customDesks[selectedPc?.id || ""] || hotSwappedDesks[selectedPc?.id || ""]) && (
+                      <span className="text-[9px] font-mono text-retro-mint bg-retro-night px-1.5 py-0.5 border border-black font-bold">
+                        {customDesks[selectedPc?.id || ""] ? "CUSTOM" : "HOT-SWAPPED"}
+                      </span>
+                    )}
+                  </div>
+
+                  {!isEditingDesk ? (
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingDeskModel(selectedPc?.modelId || "");
+                          setIsEditingDesk(true);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 border-2 border-black bg-retro-night hover:bg-retro-amber hover:text-black text-retro-cream px-2 py-1.5 font-pixel text-[9px] cursor-pointer transition-none shadow-pixel-xs font-bold"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        {language === "en" ? "CONFIGURE MODEL" : "UBAH MODEL MEJA"}
+                      </button>
+                      {(customDesks[selectedPc?.id || ""] || hotSwappedDesks[selectedPc?.id || ""]) && (
+                        <button
+                          type="button"
+                          onClick={() => handleResetDesk(selectedPc?.id || "")}
+                          title={language === "en" ? "Reset desk to default detected model" : "Reset meja ke model bawaan"}
+                          className="flex items-center justify-center border-2 border-black bg-retro-night hover:bg-retro-coral hover:text-white text-retro-paper px-2 py-1.5 font-pixel text-[9px] cursor-pointer transition-none shadow-pixel-xs"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 bg-retro-night/90 p-2 border border-retro-ink">
+                      <div>
+                        <label className="text-[9px] text-retro-paper block mb-1 font-mono">
+                          {language === "en" ? "Select preset or type model ID:" : "Pilih preset atau ketik ID model:"}
+                        </label>
+                        <select
+                          className="w-full bg-retro-dark border border-retro-ink text-retro-cream text-[10px] p-1 font-mono mb-1.5"
+                          value={editingDeskModel}
+                          onChange={(e) => setEditingDeskModel(e.target.value)}
+                        >
+                          <option value="">-- {language === "en" ? "Choose from detected models" : "Pilih dari model terdeteksi"} --</option>
+                          {models.map((m) => (
+                            <option key={m.internal_name} value={m.internal_name}>
+                              {m.internal_name} ({m.provider_adapter})
+                            </option>
+                          ))}
+                          <optgroup label="Popular / Frontier Models">
+                            <option value="ag/gemini-3.8-flash-high">ag/gemini-3.8-flash-high (Antigravity)</option>
+                            <option value="ag/claude-sonnet-4-6">ag/claude-sonnet-4-6 (Antigravity)</option>
+                            <option value="ag/claude-opus-4-6-thinking">ag/claude-opus-4-6-thinking (Antigravity)</option>
+                            <option value="nvidia/deepseek-ai/deepseek-v4-flash">nvidia/deepseek-ai/deepseek-v4-flash</option>
+                            <option value="deepseek/deepseek-r1">deepseek/deepseek-r1 (Reasoning)</option>
+                            <option value="openai/gpt-4o">openai/gpt-4o (Flagship)</option>
+                            <option value="openai/o1">openai/o1 (Deep Reasoning)</option>
+                            <option value="groq/llama-3.3-70b-versatile">groq/llama-3.3-70b-versatile</option>
+                            <option value="ollama/qwen-2.5-coder-32b">ollama/qwen-2.5-coder-32b</option>
+                          </optgroup>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="e.g. ollama/llama-3.3, gpt-4o, claude-3-7-sonnet"
+                          value={editingDeskModel}
+                          onChange={(e) => setEditingDeskModel(e.target.value)}
+                          className="w-full bg-retro-dark border border-retro-ink text-retro-cream text-[10px] px-2 py-1 font-mono focus:border-retro-amber outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleAssignModelToDesk(selectedPc?.id || "", editingDeskModel)}
+                          className="flex-1 border border-black bg-retro-amber text-black hover:bg-retro-cream px-2 py-1 font-pixel text-[9px] font-bold cursor-pointer transition-none shadow-pixel-xs flex items-center justify-center gap-1"
+                        >
+                          <Save className="w-3 h-3" />
+                          {language === "en" ? "SAVE TO DESK" : "SIMPAN KE MEJA"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingDesk(false)}
+                          className="border border-black bg-retro-dark text-retro-paper hover:text-white px-2 py-1 font-pixel text-[9px] cursor-pointer transition-none"
+                        >
+                          {language === "en" ? "CANCEL" : "BATAL"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </PixelPanel>
+          )}
         </div>
       </div>
     </div>

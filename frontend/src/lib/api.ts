@@ -273,6 +273,24 @@ export const api = {
 
   // Role & AI Workforce API
   getRoles: () => fetchApi<RoleItem[]>("/api/v1/roles"),
+
+  // Multi-Agent Pipeline API (PRD 5.1)
+  dispatchPipeline: (payload: { goal: string; title?: string; wait?: boolean; steps?: any[] }) =>
+    fetchApi<{
+      success: boolean;
+      pipelineId: string;
+      status: string;
+      title: string;
+      totalSteps: number;
+      message: string;
+      steps: any[];
+      finalOutput?: string;
+    }>("/api/v1/pipeline/dispatch", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getPipelineState: (id: string) => fetchApi<any>(`/api/v1/pipeline/${id}/state`),
+  getActivePipelines: () => fetchApi<{ activePipelines: any[] }>("/api/v1/pipeline/active"),
   createRole: (payload: RoleCreatePayload) =>
     fetchApi<RoleItem>("/api/v1/roles", {
       method: "POST",

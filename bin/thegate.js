@@ -186,16 +186,11 @@ function openBrowser(url) {
 
 // Check if an HTTP endpoint is reachable
 function checkPort(port) {
-  const isWeb = String(port) === String(WEB_PORT);
-  const checkPath = isWeb ? "/" : "/health";
+  const isInternalNext = String(port) === String(INTERNAL_WEB_PORT);
+  const checkPath = isInternalNext ? "/" : "/health";
   return new Promise((resolve) => {
     const req = http.get(`http://127.0.0.1:${port}${checkPath}`, (res) => {
-      if (isWeb) {
-        // Any 2xx or 3xx status confirms Next.js server is up and responsive
-        resolve(res.statusCode >= 200 && res.statusCode < 400);
-      } else {
-        resolve(res.statusCode === 200 || res.statusCode === 304);
-      }
+      resolve(res.statusCode >= 200 && res.statusCode < 500);
     });
     req.on("error", () => resolve(false));
     req.setTimeout(1500, () => {
@@ -218,7 +213,7 @@ function printHeader(backendOnline, frontendOnline) {
   console.log(`  ${c.gold}-------------------------------------------------------------------------${c.reset}\n`);
 }
 
-// Start Backend Ingress (Native Fastify Engine - Zero Python)
+// Start Backend Ingress (Native Fastify Engine - Unified Port 4848)
 function startBackend() {
   ensureEnvFile();
   const serverPath = path.join(__dirname, "..", "server", "index.js");
@@ -250,99 +245,45 @@ function startBackend() {
   }
 }
 
-// Start Frontend Next.js Server
 function startFrontend() {
   const isWin = process.platform === "win32";
-  const npmCmd = isWin ? "npm.cmd" : "npm";
   const frontendDir = path.join(__dirname, "..", "frontend");
   const standaloneServer = path.join(frontendDir, ".next", "standalone", "server.js");
-  const hasStandalone = fs.existsSync(standaloneServer);
-
-  // 1. FAST PATH: Next.js Standalone Mode (Zero npm install, boots in 50ms!)
-  if (hasStandalone && process.env.THEGATE_DEV !== "true") {
-    try {
-      const logFd = fs.openSync(FRONTEND_LOG_PATH, "a");
-      const child = spawn(process.execPath || "node", [standaloneServer], {
-        cwd: path.join(frontendDir, ".next", "standalone"),
-        detached: !isWin,
-        shell: isWin,
-        stdio: ["ignore", logFd, logFd],
-        env: { ...process.env, PORT: String(WEB_PORT), HOSTNAME: GATEWAY_HOST },
-      });
-      child.on("error", (err) => {
-        try {
-          fs.appendFileSync(FRONTEND_LOG_PATH, `\n[TheGate Launcher] Frontend standalone spawn error: ${err.message}\n`);
-        } catch {}
-      });
-      child.unref();
-      return;
-    } catch (err) {
-      console.log(`  ${c.fault}Failed to spawn frontend standalone server: ${err.message}${c.reset}`);
-    }
-  }
-
-  // 2. FALLBACK PATH: Standard npm run start / npm run dev
-  const hasNodeModules = fs.existsSync(path.join(frontendDir, "node_modules"));
-  const hasNextBuild = fs.existsSync(path.join(frontendDir, ".next"));
-
-  if (!hasNodeModules) {
-    console.log(`  ${c.telemetry}⚡ Installing frontend dependencies (one-time setup)...${c.reset}`);
-    try {
-      execSync(`${npmCmd} install`, { cwd: frontendDir, stdio: "inherit", shell: true });
-    } catch (e) {
-      console.log(`  ${c.fault}Failed to install frontend dependencies: ${e.message}${c.reset}`);
-    }
-  }
-
-  const isDev = process.env.THEGATE_DEV === "true";
-  let cmd = npmCmd;
-  let args = ["run", "dev", "--", "-p", String(WEB_PORT), "-H", GATEWAY_HOST];
-
-  // If built, run in production mode: ~200ms startup, rock-solid, no 404 compilation lags
-  if (hasNextBuild && !isDev) {
-    args = ["run", "start", "--", "-p", String(WEB_PORT), "-H", GATEWAY_HOST];
-  }
+  if (!fs.existsSync(standaloneServer)) return;
 
   try {
     const logFd = fs.openSync(FRONTEND_LOG_PATH, "a");
-    const child = spawn(cmd, args, {
-      cwd: frontendDir,
+    const child = spawn(process.execPath || "node", [standaloneServer], {
+      cwd: path.join(frontendDir, ".next", "standalone"),
       detached: !isWin,
-      shell: true,
+      shell: false,
       stdio: ["ignore", logFd, logFd],
-      env: { ...process.env, PORT: String(WEB_PORT), HOSTNAME: GATEWAY_HOST },
+      env: { ...process.env, PORT: String(INTERNAL_WEB_PORT), HOSTNAME: "0.0.0.0" },
     });
     child.on("error", (err) => {
       try {
-        fs.appendFileSync(FRONTEND_LOG_PATH, `\n[TheGate Launcher] Frontend spawn error: ${err.message}\n`);
+        fs.appendFileSync(FRONTEND_LOG_PATH, `\n[TheGate Launcher] Frontend standalone spawn error: ${err.message}\n`);
       } catch {}
     });
     child.unref();
   } catch (err) {
-    console.log(`  ${c.fault}Failed to spawn frontend process: ${err.message}${c.reset}`);
+    console.log(`  ${c.fault}Failed to spawn frontend standalone server: ${err.message}${c.reset}`);
   }
 }
 
 async function ensureServicesRunning() {
   let backendOnline = await checkPort(GATEWAY_PORT);
-  let frontendOnline = await checkPort(WEB_PORT);
+  let frontendOnline = await checkPort(INTERNAL_WEB_PORT);
 
   if (backendOnline && frontendOnline) return true;
 
   console.log(`\n  ${c.telemetry}⚡ Initializing TheGate runtime services...${c.reset}`);
   if (!backendOnline) {
-    console.log(`  ${c.brand}▶ Spawning Native Fastify Gateway (Port ${GATEWAY_PORT}) [Zero-Python]...${c.reset}`);
+    console.log(`  ${c.brand}▶ Spawning Unified Fastify Gateway & Web Engine (Port ${GATEWAY_PORT})...${c.reset}`);
     startBackend();
   }
   if (!frontendOnline) {
-    const hasStandalone = fs.existsSync(path.join(__dirname, "..", "frontend", ".next", "standalone", "server.js"));
-    const hasNextBuild = fs.existsSync(path.join(__dirname, "..", "frontend", ".next"));
-    const mode = hasStandalone && process.env.THEGATE_DEV !== "true"
-      ? "standalone"
-      : hasNextBuild && process.env.THEGATE_DEV !== "true"
-      ? "production"
-      : "dev";
-    console.log(`  ${c.brand}▶ Spawning Frontend Dashboard (Port ${WEB_PORT}) [${mode}]...${c.reset}`);
+    console.log(`  ${c.brand}▶ Spawning Next.js Standalone Worker (Port ${INTERNAL_WEB_PORT})...${c.reset}`);
     startFrontend();
   }
 
@@ -351,11 +292,12 @@ async function ensureServicesRunning() {
     await new Promise((r) => setTimeout(r, 600));
     process.stdout.write(".");
     backendOnline = await checkPort(GATEWAY_PORT);
-    frontendOnline = await checkPort(WEB_PORT);
+    frontendOnline = await checkPort(INTERNAL_WEB_PORT);
     if (backendOnline && frontendOnline) break;
   }
   console.log("");
 
+  frontendOnline = await checkPort(INTERNAL_WEB_PORT);
   if (backendOnline && frontendOnline) {
     console.log(`  ${c.healthy}✓ Services are now ONLINE!${c.reset}\n`);
     await new Promise((r) => setTimeout(r, 800));
@@ -379,14 +321,20 @@ async function stopAllServices() {
   if (process.platform === "win32") {
     try {
       execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${GATEWAY_PORT}') do taskkill /f /pid %a 2>nul || true`, { shell: "cmd.exe", stdio: "ignore" });
-      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${WEB_PORT}') do taskkill /f /pid %a 2>nul || true`, { shell: "cmd.exe", stdio: "ignore" });
+      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${INTERNAL_WEB_PORT}') do taskkill /f /pid %a 2>nul || true`, { shell: "cmd.exe", stdio: "ignore" });
     } catch {}
   } else {
-    exec("pkill -f 'thegate.*server/index.js' 2>/dev/null || true");
-    exec("pkill -f 'standalone/server.js' 2>/dev/null || true");
-    exec("pkill -f 'next.*(dev|start|server)' 2>/dev/null || true");
-    exec(`fuser -k ${GATEWAY_PORT}/tcp 2>/dev/null || true`);
-    exec(`fuser -k ${WEB_PORT}/tcp 2>/dev/null || true`);
+    try {
+      execSync("pkill -9 -f 'thegate.*server/index.js' 2>/dev/null || true");
+      execSync("pkill -9 -f 'standalone/server.js' 2>/dev/null || true");
+      execSync("pkill -9 -f 'next-server' 2>/dev/null || true");
+      execSync("pkill -9 -f 'next.*(dev|start|server)' 2>/dev/null || true");
+      execSync(`lsof -ti :${GATEWAY_PORT} | xargs -r kill -9 2>/dev/null || true`);
+      execSync(`lsof -ti :${INTERNAL_WEB_PORT} | xargs -r kill -9 2>/dev/null || true`);
+      execSync(`fuser -k -9 ${GATEWAY_PORT}/tcp 2>/dev/null || true`);
+      execSync(`fuser -k -9 ${INTERNAL_WEB_PORT}/tcp 2>/dev/null || true`);
+      execSync('ss -tulpn | grep -E ":(4848|4849) " | awk -F"pid=" "{print \\$2}" | awk -F"," "{print \\$1}" | xargs -r kill -9 2>/dev/null || true');
+    } catch {}
   }
   await new Promise((r) => setTimeout(r, 1200));
   console.log(`  ${c.healthy}✓ Services stopped.${c.reset}\n`);
