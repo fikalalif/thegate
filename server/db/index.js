@@ -5,10 +5,38 @@
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
-const DB_PATH = process.env.DATABASE_URL
-  ? process.env.DATABASE_URL.replace(/^sqlite\+?.*:\/\/\/?/, "")
-  : path.join(__dirname, "..", "..", "thegate_dev.db");
+function getDatabasePath() {
+  if (process.env.DATABASE_URL) {
+    const raw = process.env.DATABASE_URL.replace(/^sqlite\+?.*:\/\/\/?/, "");
+    const resolved = path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw);
+    try {
+      fs.mkdirSync(path.dirname(resolved), { recursive: true });
+    } catch {}
+    return resolved;
+  }
+
+  // Check if running in a writable project repo (local development)
+  const localDb = path.join(__dirname, "..", "..", "thegate_dev.db");
+  const localProjectRoot = path.join(__dirname, "..", "..");
+  try {
+    fs.accessSync(localProjectRoot, fs.constants.W_OK);
+    if (!__dirname.includes("node_modules")) {
+      return localDb;
+    }
+  } catch {}
+
+  // Global install or non-writable directory -> fallback to user's home ~/.thegate/thegate.db
+  const userHome = process.env.USERPROFILE || process.env.HOME || os.homedir() || "/tmp";
+  const userGateDir = path.join(userHome, ".thegate");
+  try {
+    fs.mkdirSync(userGateDir, { recursive: true });
+  } catch {}
+  return path.join(userGateDir, "thegate.db");
+}
+
+const DB_PATH = getDatabasePath();
 
 let dbInstance = null;
 let isNodeSqlite = false;
@@ -16,11 +44,13 @@ let isNodeSqlite = false;
 function initDatabase() {
   if (dbInstance) return dbInstance;
 
+  const dbPath = DB_PATH;
+
   // Try built-in node:sqlite first (Zero dependencies on Node.js 22.5+)
   try {
     const { DatabaseSync } = require("node:sqlite");
     if (typeof DatabaseSync === "function") {
-      dbInstance = new DatabaseSync(DB_PATH);
+      dbInstance = new DatabaseSync(dbPath);
       isNodeSqlite = true;
     }
   } catch {}
@@ -29,7 +59,7 @@ function initDatabase() {
   if (!dbInstance) {
     try {
       const Database = require("better-sqlite3");
-      dbInstance = new Database(DB_PATH);
+      dbInstance = new Database(dbPath);
       isNodeSqlite = false;
     } catch (err) {
       throw new Error(
