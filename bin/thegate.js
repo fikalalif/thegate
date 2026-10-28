@@ -31,8 +31,10 @@ const WEB_URL = `http://127.0.0.1:${UNIFIED_PORT}`;
 
 // Log directory for auditable runtime diagnostics
 const USER_HOME = process.env.USERPROFILE || process.env.HOME || process.env.LOCALAPPDATA || "/tmp";
-const LOG_DIR = path.join(USER_HOME, ".thegate", "logs");
+const THEGATE_DIR = path.join(USER_HOME, ".thegate");
+const LOG_DIR = path.join(THEGATE_DIR, "logs");
 try {
+  fs.mkdirSync(THEGATE_DIR, { recursive: true });
   fs.mkdirSync(LOG_DIR, { recursive: true });
 } catch {}
 const BACKEND_LOG_PATH = path.join(LOG_DIR, "backend.log");
@@ -232,6 +234,7 @@ function startBackend() {
         PORT: String(UNIFIED_PORT),
         THEGATE_HOST: GATEWAY_HOST,
         THEGATE_INTERNAL_WEB_PORT: String(INTERNAL_WEB_PORT),
+        DATABASE_URL: process.env.DATABASE_URL || `sqlite:///${path.join(USER_HOME, ".thegate", "thegate.db")}`,
       },
     });
     child.on("error", (err) => {
